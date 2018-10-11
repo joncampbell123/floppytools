@@ -254,15 +254,20 @@ int main(int argc,char **argv) {
 
             flux_bits ofb = fb;
 
-            for (int adj_c = 0;adj_c <= 42;adj_c++) {
-                for (int dadj_c = 0;dadj_c <= 42;dadj_c++) {
+            for (int adj_c = 0;adj_c <= 51;adj_c++) {
+                for (int dadj_c = 0;dadj_c <= 22;dadj_c++) {
                     unsigned int capcount = 0;
 
                     int adj = adj_c;
                     int dadj = dadj_c;
 
-                    if (adj >= 21) adj -= 21*2;
-                    if (dadj >= 21) dadj -= 21*2;
+                    if (adj >= 25) adj -= 25*2;
+                    if (dadj >= 11) dadj -= 11*2;
+
+                    if ((int)fb.shortest+(int)adj <= 0)
+                        continue;
+                    if ((int)fb.dist+(int)dadj <= 0)
+                        continue;
 
                     unsigned long snum = ((track * heads) + head) * sectors;
 
@@ -276,7 +281,7 @@ int main(int argc,char **argv) {
                         break;
                     }
                     else {
-                        printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
+                        printf("Track %u head %u capture progress: %u/%u adj=%d dadj=%d ",track,head,capcount,sectors,adj,dadj);
                         for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
                         printf("\n");
                     }
