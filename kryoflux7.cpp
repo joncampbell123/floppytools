@@ -131,7 +131,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
             else {
                 if (++errs >= 8) {
                     printf("* Gap between A1 sync has too many non-4E bytes\n");
-                    return;
+                    break;
                 }
             }
         }
@@ -254,46 +254,64 @@ int main(int argc,char **argv) {
 
             flux_bits ofb = fb;
 
-            for (int adj = -15;adj <= 15;adj++) { /* -10/10 range is enough for finicky disks that others would fail to read */
-                unsigned int capcount = 0;
+            for (int adj = -20;adj <= 20;adj++) {
+                for (int dadj = -20;dadj <= 20;dadj++) {
+                    unsigned int capcount = 0;
 
+                    {
+                        unsigned long snum = ((track * heads) + head) * sectors;
+                        for (size_t i=0;i < sectors;i++)
+                            capcount += captured[i+snum];
+                    }
+
+                    if (capcount >= sectors) {
+                        printf("Track %u head %u already captured\n",track,head);
+                        adj = 99;
+                        dadj = 99;
+                        break;
+                    }
+
+                    fseek(fp,0,SEEK_SET);
+                    fb.clear();
+
+                    fb.shortest = ofb.shortest + adj;
+                    fb.dist = ofb.dist + dadj;
+
+                    do {
+                        kryoflux_bits_refill(fb,ev,fp);
+
+                        /*                                                      *            */
+                        /*                                            1 0 1 0 0 0 0 1   (A1) */
+                        /* look for A1 sync (100010010001). Look for '0100010010001001' */
+                        /*                                            ................  16 bits */
+                        /*                                            4-->4-->8-->9-->  */
+                        /*                                            3210321032103210  */
+                        while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
+                            if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+                                process_sync(dsk_fp,fb,ev,fp);
+                            }
+                            else {
+                                fb.get(1);
+                            }
+                        }
+
+                        if (!kryoflux_bits_refill(fb,ev,fp))
+                            break;
+                    } while (fb.avail() > 0);
+                }
+            }
+
+            {
+                unsigned int capcount = 0;
                 {
                     unsigned long snum = ((track * heads) + head) * sectors;
                     for (size_t i=0;i < sectors;i++)
                         capcount += captured[i+snum];
                 }
 
-                if (capcount >= sectors) {
-                    printf("Track %u head %u already captured\n",track,head);
-                    break;
+                if (capcount < sectors) {
+                    printf("Track %u head %u not captured fully (%u < %u)\n",track,head,capcount,sectors);
                 }
-
-                fseek(fp,0,SEEK_SET);
-                fb.clear();
-
-                fb.shortest = ofb.shortest + adj;
-
-                do {
-                    kryoflux_bits_refill(fb,ev,fp);
-
-                    /*                                                      *            */
-                    /*                                            1 0 1 0 0 0 0 1   (A1) */
-                    /* look for A1 sync (100010010001). Look for '0100010010001001' */
-                    /*                                            ................  16 bits */
-                    /*                                            4-->4-->8-->9-->  */
-                    /*                                            3210321032103210  */
-                    while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
-                        if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
-                            process_sync(dsk_fp,fb,ev,fp);
-                        }
-                        else {
-                            fb.get(1);
-                        }
-                    }
-
-                    if (!kryoflux_bits_refill(fb,ev,fp))
-                        break;
-                } while (fb.avail() > 0);
             }
 
             fclose(fp);
