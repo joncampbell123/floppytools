@@ -88,6 +88,12 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
         printf("Not what we're looking for, wrong sector size\n");
         return;
     }
+    if (sector < 1 || sector > sectors ||
+        side < 0 || side >= heads ||
+        track < 0 || track >= tracks) {
+        printf("Not what we're looking for, track/side/sector %d/%d/%d out of range\n",track,side,sector);
+        return;
+    }
 
     /* 4E 4E .... */
     {
