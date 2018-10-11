@@ -17,3 +17,19 @@ struct kryoflux_event {
 
 bool kryoflux_read(struct kryoflux_event &ev,FILE *fp);
 
+struct flux_bits {
+    unsigned int        bits;
+    unsigned int        left;
+
+    unsigned int        shortest;
+    unsigned int        dist;
+
+    void                clear(void);
+    void                add(unsigned int len);
+    unsigned int        avail(void) const;
+    unsigned int        peek(unsigned int bc) const;
+    unsigned int        get(unsigned int bc);
+};
+
+void kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+

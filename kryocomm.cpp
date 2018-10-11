@@ -104,3 +104,56 @@ bool kryoflux_read(struct kryoflux_event &ev,FILE *fp) {
     return false;
 }
 
+void kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    while (fb.avail() <= 24) {
+        if (!kryoflux_read(ev,fp))
+            break;
+
+        if (ev.message == MSG_FLUX) {
+            unsigned int len;
+
+            if (ev.flux_interval >= fb.shortest) {
+                len = (((ev.flux_interval - fb.shortest) + (fb.dist / 2u)) / fb.dist) + 1;
+            }
+            else {
+                len = 1;
+            }
+
+            if (len > 8u) len = 8u;
+            fb.add(len);
+        }
+    }
+}
+
+void flux_bits::clear(void) {
+    bits = 0;
+    left = 0;
+}
+
+void flux_bits::add(unsigned int len) {
+    if (len != 0) {
+        left += len;
+        bits |= (1 << (left - 1));
+    }
+}
+
+unsigned int flux_bits::avail(void) const {
+    return left;
+}
+
+unsigned int flux_bits::peek(unsigned int bc) const {
+    if (bc != 0) return bits & ((1u << bc) - 1u);
+    return 0;
+}
+
+unsigned int flux_bits::get(unsigned int bc) {
+    if (left >= bc) {
+        unsigned int r = peek(bc);
+        bits >>= bc;
+        left -= bc;
+        return r;
+    }
+
+    return 0;
+}
+

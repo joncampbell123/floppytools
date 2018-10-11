@@ -10,63 +10,6 @@
 
 #include "kryocomm.h"
 
-struct flux_bits {
-    unsigned int        bits;
-    unsigned int        left;
-
-    unsigned int        shortest;
-    unsigned int        dist;
-
-    void clear(void) {
-        bits = 0;
-        left = 0;
-    }
-    void add(unsigned int len) {
-        if (len != 0) {
-            left += len;
-            bits |= (1 << (left - 1));
-        }
-    }
-    unsigned int avail(void) const {
-        return left;
-    }
-    unsigned int peek(unsigned int bc) const {
-        if (bc != 0) return bits & ((1u << bc) - 1u);
-        return 0;
-    }
-    unsigned int get(unsigned int bc) {
-        if (left >= bc) {
-            unsigned int r = peek(bc);
-            bits >>= bc;
-            left -= bc;
-            return r;
-        }
-
-        return 0;
-    }
-};
-
-void bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
-    while (fb.avail() <= 24) {
-        if (!kryoflux_read(ev,fp))
-            break;
-
-        if (ev.message == MSG_FLUX) {
-            unsigned int len;
-
-            if (ev.flux_interval >= fb.shortest) {
-                len = (((ev.flux_interval - fb.shortest) + (fb.dist / 2u)) / fb.dist) + 1;
-            }
-            else {
-                len = 1;
-            }
-
-            if (len > 8u) len = 8u;
-            fb.add(len);
-        }
-    }
-}
-
 int main(int argc,char **argv) {
     struct flux_bits fb;
     struct kryoflux_event ev;
@@ -105,12 +48,12 @@ int main(int argc,char **argv) {
     if (fb.dist < 3 || fb.dist > 400) return 1;
 
     do {
-        bits_refill(fb,ev,fp);
+        kryoflux_bits_refill(fb,ev,fp);
 
         unsigned int c = fb.avail();
         for (unsigned int i=0;i < c;i++) printf("%u",fb.get(1));
 
-        bits_refill(fb,ev,fp);
+        kryoflux_bits_refill(fb,ev,fp);
     } while (fb.avail() > 0);
 
     fclose(fp);
