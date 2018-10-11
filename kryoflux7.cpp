@@ -125,8 +125,8 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
                 break;
             }
             else if (c < 0) {
-                printf("! Gap between A1 sync where 4E should exist ends abruptly\n");
-                return;
+                printf("* Gap between A1 sync where 4E should exist ends abruptly\n");
+                break;
             }
             else {
                 if (++errs >= 8) {
