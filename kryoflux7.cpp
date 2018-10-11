@@ -3,6 +3,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include <string>
 #include <map>
@@ -192,11 +193,17 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     sector_num *= (unsigned long)sectors;
     sector_num += (unsigned long)sector - 1;
 
-    sector_num *= (unsigned long)sector_size;
+    unsigned long sector_ofs;
 
-    fseek(dsk_fp,sector_num,SEEK_SET);
-    if (ftell(dsk_fp) != sector_num) return;
+    sector_ofs = sector_num * (unsigned long)sector_size;
+
+    fseek(dsk_fp,sector_ofs,SEEK_SET);
+    if (ftell(dsk_fp) != sector_ofs) return;
+
     fwrite(sector_buf,sector_size,1,dsk_fp);
+
+    assert(sector_num < captured.size());
+    captured[sector_num] = true;
 }
 
 int main(int argc,char **argv) {
