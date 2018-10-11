@@ -93,14 +93,14 @@ int main(int argc,char **argv) {
 
                         {
                             unsigned char t[4];
-                            crc_t crc;
+                            crc16fd_t crc;
 
                             t[0] = t[1] = t[2] = 0xA1;
                             t[3] = (unsigned char)type_c;
-                            crc = crc_update(0xffff,t,4);
-                            crc = crc_update(crc,tmp,4);
+                            crc = crc16fd_update(0xffff,t,4);
+                            crc = crc16fd_update(crc,tmp,4);
 
-                            crc_t check;
+                            crc16fd_t check;
 
                             check = (tmp[4] << 8u) + tmp[5];
 
