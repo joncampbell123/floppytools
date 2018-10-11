@@ -268,13 +268,17 @@ int flux_bits_mfm_decode_bit(struct flux_bits &fb,struct kryoflux_event &ev,FILE
         bit = 1;
     }
     else if (raw == 3/*11*/) {
+        fb.get(1);
         return -1;
     }
     else {
         /* 10 if previous bit 0
          * 00 if previous bit 1 */
         raw ^= (1u ^ flux_bits_pbit) << 1u;
-        if (raw != 0) return -1;
+        if (raw != 0) {
+            fb.get(1);
+            return -1;
+        }
         bit = 0;
     }
 

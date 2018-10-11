@@ -14,6 +14,7 @@
 unsigned int            sectors = 18;
 unsigned int            heads = 2;
 unsigned int            tracks = 80;
+unsigned int            sector_size = 512;
 
 std::vector<bool>       captured;
 
@@ -21,6 +22,7 @@ std::vector<bool>       captured;
 // fb.peek() == A1 sync
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     unsigned char tmp[256];
+    unsigned int count;
     crc16fd_t check;
     int c;
 
@@ -81,6 +83,73 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     if (check != crc) return;
 
     printf("Sector: track=%u side=%u sector=%u ssize=%u\n",track,side,sector,128 << ssize);
+
+    if ((128 << ssize) != sector_size) {
+        printf("Not what we're looking for, wrong sector size\n");
+        return;
+    }
+
+    /* 4E 4E .... */
+    {
+        unsigned int errs = 0;
+
+        for (count=0;count < 16;count++) {
+            c = flux_bits_mfm_decode(fb,ev,fp);
+
+            if (c == 0x4E) {
+            }
+            else if (c == 0x00) {
+                break;
+            }
+            else if (c < 0) {
+                printf("! Gap between A1 sync where 4E should exist ends abruptly\n");
+                return;
+            }
+            else {
+                if (++errs >= 8) {
+                    printf("* Gap between A1 sync has too many non-4E bytes\n");
+                    return;
+                }
+            }
+        }
+
+        if (count < 8)
+            printf("* Too few 4E bytes\n");
+    }
+
+    /* look for A1 sync.
+     * mem_decode() won't reliably find it */
+    kryoflux_bits_refill(fb,ev,fp);
+    while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
+        if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+            break;
+        }
+        else {
+            fb.get(1);
+        }
+
+        if (!kryoflux_bits_refill(fb,ev,fp))
+            return;
+    }
+
+    if (fb.avail() < MFM_A1_SYNC_LENGTH)
+        return;
+
+    // A1 A1 A1 FA/FB
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
+    tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
+
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
+    tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
+
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
+    tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
+
+    // we are expecting FA/FB
+    if (((c=flux_bits_mfm_decode(fb,ev,fp))&0xFE) != 0xFA) return; // FA/FB
+    tmp[3] = (unsigned char)c;
+
+    // TODO
 }
 
 int main(int argc,char **argv) {
