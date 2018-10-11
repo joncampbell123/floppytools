@@ -21,7 +21,7 @@ std::vector<bool>       captured;
 // at call:
 // fb.peek() == A1 sync
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
-    unsigned char tmp[256];
+    unsigned char tmp[128];
     unsigned int count;
     crc16fd_t check;
     int c;
@@ -149,7 +149,31 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     if (((c=flux_bits_mfm_decode(fb,ev,fp))&0xFE) != 0xFA) return; // FA/FB
     tmp[3] = (unsigned char)c;
 
-    // TODO
+    /* begin checksum */
+    check = crc16fd_update(0xffff,tmp,4);
+
+    // sector data follows
+    for (unsigned int block=0;block < (128u << (unsigned int)ssize);block += 128) {
+        for (unsigned int b=0;b < 128;b++) {
+            if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;
+            tmp[b] = (unsigned char)c;
+        }
+        check = crc16fd_update(check,tmp,128);
+    }
+
+    // checksum
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;//CRC-hi
+    crc  = (unsigned int)c << 8;
+
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;//CRC-hi
+    crc += (unsigned int)c;
+
+    if (check != crc) {
+        printf("Sector checkum failed\n");
+        return;
+    }
+
+    printf(" * DATA OK\n");
 }
 
 int main(int argc,char **argv) {
