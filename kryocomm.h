@@ -34,6 +34,9 @@ struct flux_bits {
 bool kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 
+int flux_bits_mfm_decode_bit(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+int flux_bits_mfm_decode(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+
 #define MFM_A1_SYNC         0x4489
 #define MFM_A1_SYNC_BYTE    0xA1
 #define MFM_A1_SYNC_LENGTH  16

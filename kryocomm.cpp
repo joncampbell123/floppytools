@@ -253,3 +253,57 @@ bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FIL
     return true;
 }
 
+static int flux_bits_pbit = 0;
+
+int flux_bits_mfm_decode_bit(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    unsigned int raw,bit;
+
+    if (fb.avail() < 2) {
+        if (!kryoflux_bits_refill(fb,ev,fp))
+            return -1;
+    }
+
+    raw = fb.peek(2);
+    if (raw == 1/*01*/) {
+        bit = 1;
+    }
+    else if (raw == 3/*11*/) {
+        return -1;
+    }
+    else {
+        /* 10 if previous bit 0
+         * 00 if previous bit 1 */
+        raw ^= (1u ^ flux_bits_pbit) << 1u;
+        if (raw != 0) return -1;
+        bit = 0;
+    }
+
+    fb.get(2);
+    flux_bits_pbit = bit;
+    return bit;
+}
+
+int flux_bits_mfm_decode(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    unsigned int byte = 0,i;
+    int c;
+
+    if (fb.avail() < 16) {
+        if (!kryoflux_bits_refill(fb,ev,fp))
+            return -1;
+    }
+
+    if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+        fb.get(MFM_A1_SYNC_LENGTH);
+        flux_bits_pbit = 1; /* last bit of 0xA1 is 1 */
+        return -MFM_A1_SYNC_BYTE;
+    }
+
+    for (i=0;i < 8;i++) {
+        c = flux_bits_mfm_decode_bit(fb,ev,fp);
+        if (c < 0 || c >= 2) return -1;
+        byte |= (unsigned int)c << (7u - i);
+    }
+
+    return byte;
+}
+
