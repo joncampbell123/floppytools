@@ -135,7 +135,7 @@ void flux_bits::clear(void) {
 void flux_bits::add(unsigned int len) {
     if (len != 0) {
         left += len;
-        bits |= (1 << (left - 1));
+        bits |= (1u << (left - 1u));
     }
 }
 
@@ -144,7 +144,10 @@ unsigned int flux_bits::avail(void) const {
 }
 
 unsigned int flux_bits::peek(unsigned int bc) const {
-    if (bc != 0) return bits & ((1u << bc) - 1u);
+    if (left >= bc)
+        return bits & ((1u << bc) - 1u);
+
+    fprintf(stderr,"flux_bits::peek() overrun\n");
     return 0;
 }
 
@@ -154,6 +157,9 @@ unsigned int flux_bits::get(unsigned int bc) {
         bits >>= bc;
         left -= bc;
         return r;
+    }
+    else {
+        fprintf(stderr,"flux_bits::get() overrun\n");
     }
 
     return 0;
