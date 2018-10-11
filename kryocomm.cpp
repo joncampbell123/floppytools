@@ -135,6 +135,7 @@ void flux_bits::clear(void) {
 void flux_bits::add(unsigned int len) {
     if (len != 0) {
         left  += len;
+        if (left > (sizeof(unsigned int) * 8u)) fprintf(stderr,"flux_bits::add() overrun\n");
         bits <<= len;
         bits  += 1u << (len - 1u);
     }
