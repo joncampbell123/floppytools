@@ -31,6 +31,6 @@ struct flux_bits {
     unsigned int        get(unsigned int bc);
 };
 
-void kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+bool kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 

@@ -104,10 +104,10 @@ bool kryoflux_read(struct kryoflux_event &ev,FILE *fp) {
     return false;
 }
 
-void kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+bool kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     while (fb.avail() <= 24) {
         if (!kryoflux_read(ev,fp))
-            break;
+            return false;
 
         if (ev.message == MSG_FLUX) {
             unsigned int len;
@@ -123,6 +123,8 @@ void kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
             fb.add(len);
         }
     }
+
+    return true;
 }
 
 void flux_bits::clear(void) {
