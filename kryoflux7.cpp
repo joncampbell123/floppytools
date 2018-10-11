@@ -108,7 +108,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
 
     assert(sector_num < captured.size());
     if (captured[sector_num]) {
-        printf("Already captured\n");
+//        printf("Already captured\n");
         return;
     }
 
@@ -254,9 +254,15 @@ int main(int argc,char **argv) {
 
             flux_bits ofb = fb;
 
-            for (int adj = -20;adj <= 20;adj++) {
-                for (int dadj = -20;dadj <= 20;dadj++) {
+            for (int adj_c = 0;adj_c <= 42;adj_c++) {
+                for (int dadj_c = 0;dadj_c <= 42;dadj_c++) {
                     unsigned int capcount = 0;
+
+                    int adj = adj_c;
+                    int dadj = dadj_c;
+
+                    if (adj >= 21) adj -= 21*2;
+                    if (dadj >= 21) dadj -= 21*2;
 
                     {
                         unsigned long snum = ((track * heads) + head) * sectors;
@@ -266,8 +272,8 @@ int main(int argc,char **argv) {
 
                     if (capcount >= sectors) {
                         printf("Track %u head %u already captured\n",track,head);
-                        adj = 99;
-                        dadj = 99;
+                        adj_c = 99;
+                        dadj_c = 99;
                         break;
                     }
 
