@@ -254,14 +254,14 @@ int main(int argc,char **argv) {
 
             flux_bits ofb = fb;
 
-            for (int adj_c = 0;adj_c <= 51;adj_c++) {
+            for (int adj_c = 0;adj_c <= 22;adj_c++) {
                 for (int dadj_c = 0;dadj_c <= 22;dadj_c++) {
                     unsigned int capcount = 0;
 
                     int adj = adj_c;
                     int dadj = dadj_c;
 
-                    if (adj >= 25) adj -= 25*2;
+                    if (adj >= 11) adj -= 11*2;
                     if (dadj >= 11) dadj -= 11*2;
 
                     if ((int)ofb.shortest+(int)adj <= 0)
