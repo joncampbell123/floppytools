@@ -48,9 +48,9 @@ int main(int argc,char **argv) {
         /*                                            ................  16 bits */
         /*                                            4-->4-->8-->9-->  */
         /*                                            3210321032103210  */
-        while (fb.avail() >= 16) {
-            if (fb.peek(16) == 0x4489) {
-                fb.get(16);
+        while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
+            if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+                fb.get(MFM_A1_SYNC_LENGTH);
                 printf("Sync\n");
             }
             else {
