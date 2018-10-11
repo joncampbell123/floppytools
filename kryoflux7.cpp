@@ -209,53 +209,71 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
 int main(int argc,char **argv) {
     struct flux_bits fb;
     struct kryoflux_event ev;
+    std::string path;
     FILE *dsk_fp;
     int c;
 
     if (argc < 2) {
-        fprintf(stderr,"%s <raw>\n",argv[0]);
-        return 1;
-    }
-
-    FILE *fp = fopen(argv[1],"rb");
-    if (fp == NULL) return 1;
-
-    if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
-        fprintf(stderr,"Autodetect failure\n");
+        fprintf(stderr,"%s <raw capture directory>\n",argv[0]);
         return 1;
     }
 
     dsk_fp = fopen("disk.img","wb");
     if (dsk_fp == NULL) return 1;
 
-    fb.clear();
-
     captured.resize(heads * sectors * tracks);
 
-    do {
-        kryoflux_bits_refill(fb,ev,fp);
+    for (unsigned int track=0;track < tracks;track++) {
+        for (unsigned int head=0;head < heads;head++) {
+            {
+                char tmp[128];
 
-        /*                                                      *            */
-        /*                                            1 0 1 0 0 0 0 1   (A1) */
-        /* look for A1 sync (100010010001). Look for '0100010010001001' */
-        /*                                            ................  16 bits */
-        /*                                            4-->4-->8-->9-->  */
-        /*                                            3210321032103210  */
-        while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
-            if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
-                process_sync(dsk_fp,fb,ev,fp);
+                sprintf(tmp,"track%02u.%u.raw",track,head);
+                path = std::string(argv[1]) + "/" + tmp;
             }
-            else {
-                fb.get(1);
+
+            printf("%s...\n",path.c_str());
+
+            FILE *fp = fopen(path.c_str(),"rb");
+            if (fp == NULL) {
+                printf("Failed to open\n");
+                continue;
             }
+
+            if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
+                fprintf(stderr,"Autodetect failure\n");
+                fclose(fp);
+                continue;
+            }
+            fb.clear();
+
+            do {
+                kryoflux_bits_refill(fb,ev,fp);
+
+                /*                                                      *            */
+                /*                                            1 0 1 0 0 0 0 1   (A1) */
+                /* look for A1 sync (100010010001). Look for '0100010010001001' */
+                /*                                            ................  16 bits */
+                /*                                            4-->4-->8-->9-->  */
+                /*                                            3210321032103210  */
+                while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
+                    if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+                        process_sync(dsk_fp,fb,ev,fp);
+                    }
+                    else {
+                        fb.get(1);
+                    }
+                }
+
+                if (!kryoflux_bits_refill(fb,ev,fp))
+                    break;
+            } while (fb.avail() > 0);
+
+            fclose(fp);
         }
-
-        if (!kryoflux_bits_refill(fb,ev,fp))
-            break;
-    } while (fb.avail() > 0);
+    }
 
     fclose(dsk_fp);
-    fclose(fp);
     return 0;
 }
 
