@@ -14,6 +14,9 @@ struct flux_bits {
     unsigned int        bits;
     unsigned int        left;
 
+    unsigned int        shortest;
+    unsigned int        dist;
+
     void clear(void) {
         bits = 0;
         left = 0;
@@ -43,20 +46,7 @@ struct flux_bits {
     }
 };
 
-/* shortest distance seen in histogram of an MFM floppy represending 1010101010 */
-static unsigned int shortest = 49;
-/* distance between each bit (between 101010 and 1001001001001) */
-static unsigned int dist = 23;
-
 void bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
-    unsigned int mn;
-
-    {
-        int x = (int)shortest - (int)dist;
-        if (x < 0) x = 0;
-        mn = (unsigned int)x;
-    }
-
     while (fb.avail() <= 24) {
         if (!kryoflux_read(ev,fp))
             break;
@@ -64,8 +54,8 @@ void bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
         if (ev.message == MSG_FLUX) {
             unsigned int len;
 
-            if (ev.flux_interval >= mn) {
-                len = (((ev.flux_interval - mn) + (dist / 2u)) / dist) + 1;
+            if (ev.flux_interval >= fb.shortest) {
+                len = (((ev.flux_interval - fb.shortest) + (fb.dist / 2u)) / fb.dist) + 1;
             }
             else {
                 len = 1;
@@ -78,9 +68,18 @@ void bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
 }
 
 int main(int argc,char **argv) {
+    struct flux_bits fb;
+    struct kryoflux_event ev;
 
     if (argc < 4) {
         fprintf(stderr,"%s <raw> <shortest> <dist>\n",argv[0]);
+        fprintf(stderr," shortest = distance of one bit cell.\n");
+        fprintf(stderr,"            use the histogram function in kryoflux2.cpp to determine this.\n");
+        fprintf(stderr,"            for an MFM encoded disk, the 1010101010 distance will be the shortest,\n");
+        fprintf(stderr,"            therefore take that and subtract distance and apply here.\n");
+        fprintf(stderr," dist =     distance between 10101010101 and 1001001001001.\n");
+        fprintf(stderr,"\n");
+        fprintf(stderr,"In my tests with a 1.44MB MFM, shortest = 26 and dist = 23.\n");
         return 1;
     }
 
@@ -90,14 +89,20 @@ int main(int argc,char **argv) {
     /* TODO: autodetection is possible (for MFM at least).
      *       look at the histogram code in kryoflux2.cpp */
 
-    shortest = atoi(argv[2]);
-    if (shortest < 10 || shortest > 500) return 1;
+    /* from my tests:
+     *
+     * distance of 10101010101010 = 49
+     * change in distance to encode 1001001001001001 = 23.
+     *
+     * shortest is therefore 49 - 23 = 26 which is the distance to encode 111111111111 */
 
-    dist = atoi(argv[3]);
-    if (dist < 3 || dist > 400) return 1;
+    fb.clear();
 
-    struct flux_bits fb;
-    struct kryoflux_event ev;
+    fb.shortest = atoi(argv[2]);
+    if (fb.shortest < 10 || fb.shortest > 500) return 1;
+
+    fb.dist = atoi(argv[3]);
+    if (fb.dist < 3 || fb.dist > 400) return 1;
 
     do {
         bits_refill(fb,ev,fp);
