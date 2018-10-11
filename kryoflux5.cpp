@@ -42,13 +42,15 @@ int main(int argc,char **argv) {
     do {
         kryoflux_bits_refill(fb,ev,fp);
 
-        /* look for A1 sync (100010010001). Look for '01000100100010' */
-        /*                                            ..............  14 bits */
-        /*                                          1-->1-->2-->2-->  */
-        /*                                          3210321032103210  */
-        while (fb.avail() >= 14) {
-            if (fb.peek(14) == 0x1122) {
-                fb.get(14);
+        /*                                                      *            */
+        /*                                            1 0 1 0 0 0 0 1   (A1) */
+        /* look for A1 sync (100010010001). Look for '0100010010001001' */
+        /*                                            ................  16 bits */
+        /*                                            4-->4-->8-->9-->  */
+        /*                                            3210321032103210  */
+        while (fb.avail() >= 16) {
+            if (fb.peek(16) == 0x4489) {
+                fb.get(16);
                 printf("Sync\n");
             }
             else {
