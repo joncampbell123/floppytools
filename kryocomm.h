@@ -32,4 +32,5 @@ struct flux_bits {
 };
 
 void kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 
