@@ -90,6 +90,36 @@ int main(int argc,char **argv) {
                                 tmp[4],tmp[5]);
                         }
                     }
+                    else if ((c&0xFE) == 0xFA) {
+                        unsigned char tmp[128];
+                        unsigned int tmpsz=0;
+
+                        memset(tmp,0,sizeof(tmp));
+                        for (unsigned int i=0;i < 128u;i++) {
+                            c = flux_bits_mfm_decode(fb,ev,fp);
+                            if (c < 0) break;
+                            tmp[i] = (unsigned char)c;
+                            tmpsz = i;
+                        }
+
+                        printf(" Sector contents:\n");
+
+                        for (unsigned int i=0;i < 128;i += 16) {
+                            for (unsigned int c=0;c < 16;c++)
+                                printf("%02x ",tmp[i+c]);
+
+                            printf("  ");
+
+                            for (unsigned int c=0;c < 16;c++) {
+                                if (tmp[i+c] >= 32 && tmp[i+c] < 127)
+                                    printf("%c",tmp[i+c]);
+                                else
+                                    printf(".");
+                            }
+
+                            printf("\n");
+                        }
+                    }
                 }
             }
             else {
