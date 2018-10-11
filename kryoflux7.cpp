@@ -85,16 +85,14 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     check = crc16fd_update(0xffff,tmp,8);
     if (check != crc) return;
 
-    printf("Sector: track=%u side=%u sector=%u ssize=%u\n",track,side,sector,128 << ssize);
-
     if ((128 << ssize) != sector_size) {
-        printf("Not what we're looking for, wrong sector size\n");
+//        printf("Not what we're looking for, wrong sector size\n");
         return;
     }
     if (sector < 1 || sector > sectors ||
         side < 0 || side >= heads ||
         track < 0 || track >= tracks) {
-        printf("Not what we're looking for, track/side/sector %d/%d/%d out of range\n",track,side,sector);
+//        printf("Not what we're looking for, track/side/sector %d/%d/%d out of range\n",track,side,sector);
         return;
     }
 
@@ -111,6 +109,8 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
 //        printf("Already captured\n");
         return;
     }
+
+    printf("Sector: track=%u side=%u sector=%u ssize=%u\n",track,side,sector,128 << ssize);
 
     /* 4E 4E .... */
     {
@@ -264,10 +264,13 @@ int main(int argc,char **argv) {
                     if (adj >= 25) adj -= 25*2;
                     if (dadj >= 11) dadj -= 11*2;
 
-                    if ((int)fb.shortest+(int)adj <= 0)
+                    if ((int)ofb.shortest+(int)adj <= 0)
                         continue;
-                    if ((int)fb.dist+(int)dadj <= 0)
+                    fb.shortest = ofb.shortest + adj;
+
+                    if ((int)ofb.dist+(int)dadj <= 0)
                         continue;
+                    fb.dist = ofb.dist + dadj;
 
                     unsigned long snum = ((track * heads) + head) * sectors;
 
@@ -288,9 +291,6 @@ int main(int argc,char **argv) {
 
                     fseek(fp,0,SEEK_SET);
                     fb.clear();
-
-                    fb.shortest = ofb.shortest + adj;
-                    fb.dist = ofb.dist + dadj;
 
                     do {
                         kryoflux_bits_refill(fb,ev,fp);
