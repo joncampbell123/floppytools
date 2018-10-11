@@ -258,7 +258,7 @@ int main(int argc,char **argv) {
                 unsigned int capcount = 0;
 
                 {
-                    unsigned long snum = (track * heads) + head;
+                    unsigned long snum = ((track * heads) + head) * sectors;
                     for (size_t i=0;i < sectors;i++)
                         capcount += captured[i+snum];
                 }
