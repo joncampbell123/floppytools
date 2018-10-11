@@ -179,10 +179,11 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     for (unsigned int b=0;b < (sector_size+2);b++) {
         kryoflux_bits_refill(fb,ev,fp);
 
+        unsigned long cstart = ev.offset;
         unsigned int cpeek = fb.peek(16);
 
         if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) {
-            printf(" ! flux error in sector (%d) at byte %u / %u (flux 0x%04x)\n",c,b,sector_size,cpeek);
+            printf(" ! flux error in sector (%d) at byte %u / %u (flux 0x%04x offset %lu)\n",c,b,sector_size,cpeek,cstart);
             return;
         }
         sector_buf[b] = (unsigned char)c;
