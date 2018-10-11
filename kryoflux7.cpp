@@ -264,17 +264,21 @@ int main(int argc,char **argv) {
                     if (adj >= 21) adj -= 21*2;
                     if (dadj >= 21) dadj -= 21*2;
 
-                    {
-                        unsigned long snum = ((track * heads) + head) * sectors;
-                        for (size_t i=0;i < sectors;i++)
-                            capcount += captured[i+snum];
-                    }
+                    unsigned long snum = ((track * heads) + head) * sectors;
+
+                    for (size_t i=0;i < sectors;i++)
+                        capcount += captured[i+snum];
 
                     if (capcount >= sectors) {
                         printf("Track %u head %u already captured\n",track,head);
                         adj_c = 99;
                         dadj_c = 99;
                         break;
+                    }
+                    else {
+                        printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
+                        for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
+                        printf("\n");
                     }
 
                     fseek(fp,0,SEEK_SET);
