@@ -155,7 +155,10 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     // sector data follows
     for (unsigned int block=0;block < (128u << (unsigned int)ssize);block += 128) {
         for (unsigned int b=0;b < 128;b++) {
-            if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;
+            if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) {
+                printf(" ! flux error in sector\n");
+                return;
+            }
             tmp[b] = (unsigned char)c;
         }
         check = crc16fd_update(check,tmp,128);
