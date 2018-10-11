@@ -16,6 +16,8 @@ unsigned int            heads = 2;
 unsigned int            tracks = 80;
 unsigned int            sector_size = 512;
 
+unsigned char           sector_buf[16384];
+
 std::vector<bool>       captured;
 
 // at call:
@@ -159,16 +161,14 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     check = crc16fd_update(0xffff,tmp,4);
 
     // sector data follows
-    for (unsigned int block=0;block < (128u << (unsigned int)ssize);block += 128) {
-        for (unsigned int b=0;b < 128;b++) {
-            if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) {
-                printf(" ! flux error in sector\n");
-                return;
-            }
-            tmp[b] = (unsigned char)c;
+    for (unsigned int b=0;b < sector_size;b++) {
+        if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) {
+            printf(" ! flux error in sector\n");
+            return;
         }
-        check = crc16fd_update(check,tmp,128);
+        sector_buf[b] = (unsigned char)c;
     }
+    check = crc16fd_update(check,sector_buf,sector_size);
 
     // checksum
     if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;//CRC-hi
@@ -183,6 +183,20 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     }
 
     printf(" * DATA OK\n");
+
+    unsigned long sector_num;
+
+    sector_num  = (unsigned long)track;
+    sector_num *= (unsigned long)heads;
+    sector_num += (unsigned long)side;
+    sector_num *= (unsigned long)sectors;
+    sector_num += (unsigned long)sector - 1;
+
+    sector_num *= (unsigned long)sector_size;
+
+    fseek(dsk_fp,sector_num,SEEK_SET);
+    if (ftell(dsk_fp) != sector_num) return;
+    fwrite(sector_buf,sector_size,1,dsk_fp);
 }
 
 int main(int argc,char **argv) {
