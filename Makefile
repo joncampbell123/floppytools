@@ -1,5 +1,5 @@
 
-BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6
+BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7
 
 all: $(BINS)
 
@@ -45,6 +45,13 @@ kryoflux6: kryoflux6.o kryocomm.o
 	g++ -o $@ kryoflux6.o kryocomm.o
 
 kryoflux6.o: kryoflux6.cpp
+	g++ -std=gnu++0x -c -o $@ $<
+
+
+kryoflux7: kryoflux7.o kryocomm.o
+	g++ -o $@ kryoflux7.o kryocomm.o
+
+kryoflux7.o: kryoflux7.cpp
 	g++ -std=gnu++0x -c -o $@ $<
 
 
