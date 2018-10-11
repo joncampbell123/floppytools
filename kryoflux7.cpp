@@ -273,6 +273,28 @@ int main(int argc,char **argv) {
         }
     }
 
+    {
+        size_t count = 0;
+
+        for (size_t i=0;i < captured.size();i++) {
+            if (captured[i]) count++;
+        }
+
+        printf("Capture report: %zu captured / %zu total\n",count,captured.size());
+
+        if (count < captured.size()) {
+            printf("Missing sectors:\n");
+            for (size_t i=0;i < captured.size();i++) {
+                if (!captured[i])
+                    printf(" %zu (C/H/S %u/%u/%u)\n",
+                        i,
+                        i / heads / sectors,
+                        (i / sectors) % heads,
+                        (i % sectors) + 1);
+            }
+        }
+    }
+
     fclose(dsk_fp);
     return 0;
 }
