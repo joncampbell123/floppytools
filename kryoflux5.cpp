@@ -51,7 +51,7 @@ int main(int argc,char **argv) {
         while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
             if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
                 fb.get(MFM_A1_SYNC_LENGTH);
-                printf("Sync\n");
+                printf("Sync at about %lu\n",ev.offset);
             }
             else {
                 fb.get(1);
