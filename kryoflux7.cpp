@@ -98,6 +98,20 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
         return;
     }
 
+    unsigned long sector_num;
+
+    sector_num  = (unsigned long)track;
+    sector_num *= (unsigned long)heads;
+    sector_num += (unsigned long)side;
+    sector_num *= (unsigned long)sectors;
+    sector_num += (unsigned long)sector - 1;
+
+    assert(sector_num < captured.size());
+    if (captured[sector_num]) {
+        printf("Already captured\n");
+        return;
+    }
+
     /* 4E 4E .... */
     {
         unsigned int errs = 0;
@@ -185,14 +199,6 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
 
     printf(" * DATA OK\n");
 
-    unsigned long sector_num;
-
-    sector_num  = (unsigned long)track;
-    sector_num *= (unsigned long)heads;
-    sector_num += (unsigned long)side;
-    sector_num *= (unsigned long)sectors;
-    sector_num += (unsigned long)sector - 1;
-
     unsigned long sector_ofs;
 
     sector_ofs = sector_num * (unsigned long)sector_size;
@@ -245,29 +251,37 @@ int main(int argc,char **argv) {
                 fclose(fp);
                 continue;
             }
-            fb.clear();
 
-            do {
-                kryoflux_bits_refill(fb,ev,fp);
+            flux_bits ofb = fb;
 
-                /*                                                      *            */
-                /*                                            1 0 1 0 0 0 0 1   (A1) */
-                /* look for A1 sync (100010010001). Look for '0100010010001001' */
-                /*                                            ................  16 bits */
-                /*                                            4-->4-->8-->9-->  */
-                /*                                            3210321032103210  */
-                while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
-                    if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
-                        process_sync(dsk_fp,fb,ev,fp);
+            for (int adj = -15;adj <= 15;adj++) { /* -10/10 range is enough for finicky disks that others would fail to read */
+                fseek(fp,0,SEEK_SET);
+                fb.clear();
+
+                fb.shortest = ofb.shortest + adj;
+
+                do {
+                    kryoflux_bits_refill(fb,ev,fp);
+
+                    /*                                                      *            */
+                    /*                                            1 0 1 0 0 0 0 1   (A1) */
+                    /* look for A1 sync (100010010001). Look for '0100010010001001' */
+                    /*                                            ................  16 bits */
+                    /*                                            4-->4-->8-->9-->  */
+                    /*                                            3210321032103210  */
+                    while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
+                        if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+                            process_sync(dsk_fp,fb,ev,fp);
+                        }
+                        else {
+                            fb.get(1);
+                        }
                     }
-                    else {
-                        fb.get(1);
-                    }
-                }
 
-                if (!kryoflux_bits_refill(fb,ev,fp))
-                    break;
-            } while (fb.avail() > 0);
+                    if (!kryoflux_bits_refill(fb,ev,fp))
+                        break;
+                } while (fb.avail() > 0);
+            }
 
             fclose(fp);
         }
