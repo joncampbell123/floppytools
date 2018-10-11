@@ -255,6 +255,19 @@ int main(int argc,char **argv) {
             flux_bits ofb = fb;
 
             for (int adj = -15;adj <= 15;adj++) { /* -10/10 range is enough for finicky disks that others would fail to read */
+                unsigned int capcount = 0;
+
+                {
+                    unsigned long snum = (track * heads) + head;
+                    for (size_t i=0;i < sectors;i++)
+                        capcount += captured[i+snum];
+                }
+
+                if (capcount >= sectors) {
+                    printf("Track %u head %u already captured\n",track,head);
+                    break;
+                }
+
                 fseek(fp,0,SEEK_SET);
                 fb.clear();
 
