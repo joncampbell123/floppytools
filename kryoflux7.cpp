@@ -17,7 +17,7 @@ unsigned int            heads = 2;
 unsigned int            tracks = 80;
 unsigned int            sector_size = 512;
 
-unsigned char           sector_buf[16384];
+unsigned char           sector_buf[16384+16];
 
 std::vector<bool>       captured;
 
@@ -176,7 +176,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     check = crc16fd_update(0xffff,tmp,4);
 
     // sector data follows
-    for (unsigned int b=0;b < sector_size;b++) {
+    for (unsigned int b=0;b < (sector_size+2);b++) {
         kryoflux_bits_refill(fb,ev,fp);
 
         unsigned int cpeek = fb.peek(16);
@@ -189,12 +189,8 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     }
     check = crc16fd_update(check,sector_buf,sector_size);
 
-    // checksum
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;//CRC-hi
-    crc  = (unsigned int)c << 8;
-
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;//CRC-hi
-    crc += (unsigned int)c;
+    crc  = (unsigned int)sector_buf[sector_size+0u] << 8u;
+    crc += (unsigned int)sector_buf[sector_size+1u];
 
     if (check != crc) {
         printf("Sector checkum failed\n");
