@@ -4,7 +4,7 @@ BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryof
 all: $(BINS)
 
 clean:
-	rm -f $(BINS) *.o
+	rm -f $(BINS) *.o graph.csv graph.gnuplot graph.png disk.img
 
 kryoflux1: kryoflux1.o kryocomm.o
 	g++ -o $@ kryoflux1.o kryocomm.o
