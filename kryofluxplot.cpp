@@ -26,10 +26,12 @@ int main(int argc,char **argv) {
     unsigned long count = 0;
 
     fprintf(csv_fp,"# index, flux\n");
-    while (kryoflux_read(ev,fp)) {
+    while (kryoflux_read(ev,fp) && count < 100000ul) {
         if (ev.message == MSG_FLUX) {
-            fprintf(csv_fp,"%lu, %lu\n",count,ev.flux_interval);
-            count++;
+            if (count,ev.flux_interval < 128) {
+                fprintf(csv_fp,"%lu, %lu\n",count,ev.flux_interval);
+                count++;
+            }
         }
     }
 
@@ -37,13 +39,13 @@ int main(int argc,char **argv) {
     if (graph_fp == NULL) return 1;
 
     fprintf(graph_fp,"reset\n");
-    fprintf(graph_fp,"set term png size %lu,256\n",count / 100ul);
+    fprintf(graph_fp,"set term png size %lu,256\n",count/10ul);
     fprintf(graph_fp,"set output 'graph.png'\n");
     fprintf(graph_fp,"set grid\n");
     fprintf(graph_fp,"set autoscale\n");
     fprintf(graph_fp,"set title 'Flux reversals'\n");
     fprintf(graph_fp,"set xlabel 'Sample'\n");
-    fprintf(graph_fp,"set ylabel 'Distance'\n");
+    fprintf(graph_fp,"set ylabel 'Flux reversal distance'\n");
     fprintf(graph_fp,"plot 'graph.csv' using 1:2 with points pointtype 3 pointsize 0.1 title 'Distance'\n");
 
     fclose(graph_fp);
