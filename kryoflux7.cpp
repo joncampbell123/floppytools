@@ -260,15 +260,18 @@ int main(int argc,char **argv) {
 
                 flux_bits ofb = fb;
 
-                for (int adj_c = 0;adj_c <= 11;adj_c++) {
-                    for (int dadj_c = 0;dadj_c <= 11;dadj_c++) {
+                int adj_span = 8;
+                int dadj_span = 8;
+
+                for (int adj_c = 0;adj_c <= (adj_span*2);adj_c++) {
+                    for (int dadj_c = 0;dadj_c <= (dadj_span*2);dadj_c++) {
                         unsigned int capcount = 0;
 
                         int adj = adj_c;
                         int dadj = dadj_c;
 
-                        if (adj >= 5) adj -= 5*2;
-                        if (dadj >= 5) dadj -= 5*2;
+                        if (adj >= (adj_span+1)) adj -= adj_span*2;
+                        if (dadj >= (dadj_span+1)) dadj -= dadj_span*2;
 
                         if ((int)ofb.shortest+(int)adj <= 0)
                             continue;
