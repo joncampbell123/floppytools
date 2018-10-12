@@ -110,11 +110,11 @@ bool kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
             return false;
 
         if (ev.message == MSG_FLUX) {
-            int len;
+            long len;
 
-            len = ((((int)ev.flux_interval - (int)fb.shortest) + (fb.dist / 2)) / fb.dist) + 1;
-            if (len < 1u) len = 1u;
-            if (len > 8u) len = 8u;
+            len = ((((long)ev.flux_interval - (long)fb.shortest) + (long)(fb.dist / 2l)) / (long)fb.dist) + 1l;
+            if (len < 1) len = 1;
+            if (len > 8) len = 8;
 
             fb.add((unsigned int)len);
         }
