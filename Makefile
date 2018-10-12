@@ -1,5 +1,5 @@
 
-BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7
+BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryofluxplot
 
 all: $(BINS)
 
@@ -52,6 +52,13 @@ kryoflux7: kryoflux7.o kryocomm.o
 	g++ -o $@ kryoflux7.o kryocomm.o
 
 kryoflux7.o: kryoflux7.cpp
+	g++ -std=gnu++0x -c -o $@ $<
+
+
+kryofluxplot: kryofluxplot.o kryocomm.o
+	g++ -o $@ kryofluxplot.o kryocomm.o
+
+kryofluxplot.o: kryofluxplot.cpp
 	g++ -std=gnu++0x -c -o $@ $<
 
 
