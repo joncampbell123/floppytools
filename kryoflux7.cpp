@@ -226,8 +226,33 @@ int main(int argc,char **argv) {
         return 1;
     }
 
-    for (int i=1;i < argc;i++)
-        cappaths.push_back(argv[i]);
+    for (int i=1;i < argc;i++) {
+        char *a = argv[i];
+
+        if (*a == '-') {
+            do { a++; } while (*a == '-');
+
+            if (!strcmp(a,"1.4mb")) {
+                sectors = 18;
+                heads = 2;
+                tracks = 80;
+                sector_size = 512;
+            }
+            else if (!strcmp(a,"720k")) {
+                sectors = 9;
+                heads = 2;
+                tracks = 80;
+                sector_size = 512;
+            }
+            else {
+                fprintf(stderr,"Unknown switch %s\n",a);
+                return 1;
+            }
+        }
+        else {
+            cappaths.push_back(argv[i]);
+        }
+    }
 
     dsk_fp = fopen("disk.img","wb");
     if (dsk_fp == NULL) return 1;
