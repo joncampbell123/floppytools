@@ -21,6 +21,23 @@ unsigned char           sector_buf[16384+16];
 
 std::vector<bool>       captured;
 
+// A1 A1 A1
+// FE
+// track number
+// side
+// sector number
+// sector size as power of 2
+// <TWO BYTE CRC>
+// 22 bytes of 4E
+// 12 bytes of 00
+//
+// A1 A1 A1
+// FA/FB
+// <SECTOR DATA>
+// <TWO BYTE CRC>
+//
+// (inter-sector gap filled with 4E)
+
 // at call:
 // fb.peek() == A1 sync
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
