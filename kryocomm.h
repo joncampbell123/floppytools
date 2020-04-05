@@ -51,6 +51,17 @@ struct kryo_savestate {
     void                clear(void);
 };
 
+struct mfm_sector_id { // 0xFE type packets
+    uint8_t         track;
+    uint8_t         side;
+    uint8_t         sector;
+    uint8_t         sector_size_code;       // bytes = 128 << sector_size_code
+    bool            crc_ok;
+
+    mfm_sector_id();
+    void clear(void);
+};
+
 void kryo_save_state(struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 void kryo_restore_state(const struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 
@@ -64,6 +75,7 @@ int flux_bits_mfm_decode_bit(struct flux_bits &fb,struct kryoflux_event &ev,FILE
 int flux_bits_mfm_decode(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 int flux_bits_mfm_skip_sync(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 int flux_bits_mfm_read_sync_and_byte(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+int flux_bits_mfm_read_sector_id(mfm_sector_id &sid,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 
 #define MFM_A1_SYNC         0x4489
 #define MFM_A1_SYNC_BYTE    0xA1

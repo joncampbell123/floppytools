@@ -516,3 +516,57 @@ int flux_bits_mfm_read_sync_and_byte(struct flux_bits &fb,struct kryoflux_event 
     return c;
 }
 
+mfm_sector_id::mfm_sector_id() {
+    clear();
+}
+
+void mfm_sector_id::clear(void) {
+    track = side = sector = sector_size_code = 0;
+    crc_ok = false;
+}
+
+// at call:
+// caller just read A1 A1 A1 <byte> where <byte> == 0xFE
+// and the next bytes are the track, side, sector, sector_size and CRC fields.
+int flux_bits_mfm_read_sector_id(mfm_sector_id &sid,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    unsigned char tmp[8];
+    mfm_crc16fd_t check;
+    int c;
+
+    sid.clear();
+
+    tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
+    tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
+    tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
+    tmp[3] = (unsigned char)0xFE;
+
+    int track = flux_bits_mfm_decode(fb,ev,fp);
+    if (track < 0) return -1;
+    tmp[4] = sid.track = (unsigned char)track;
+
+    int side = flux_bits_mfm_decode(fb,ev,fp);
+    if (side < 0) return -1;
+    tmp[5] = sid.side = (unsigned char)side;
+
+    int sector = flux_bits_mfm_decode(fb,ev,fp);
+    if (sector < 0) return -1;
+    tmp[6] = sid.sector = (unsigned char)sector;
+
+    int ssize = flux_bits_mfm_decode(fb,ev,fp);
+    if (ssize < 0) return -1;
+    tmp[7] = sid.sector_size_code = (unsigned char)ssize;
+
+    unsigned int crc;
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return -1;//CRC-hi
+    crc  = (unsigned int)c << 8;
+
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return -1;//CRC-hi
+    crc += (unsigned int)c;
+
+    check = mfm_crc16fd_update(0xffff,tmp,8);
+    if (check != crc) return -1;
+
+    sid.crc_ok = true;
+    return 0;
+}
+
