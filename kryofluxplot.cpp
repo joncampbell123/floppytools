@@ -28,10 +28,8 @@ int main(int argc,char **argv) {
     fprintf(csv_fp,"# index, flux\n");
     while (kryoflux_read(ev,fp) && count < 100000ul) {
         if (ev.message == MSG_FLUX) {
-            if (count,ev.flux_interval < 128) {
-                fprintf(csv_fp,"%lu, %lu\n",count,ev.flux_interval);
-                count++;
-            }
+            fprintf(csv_fp,"%lu, %lu\n",count,ev.flux_interval);
+            count++;
         }
     }
 
