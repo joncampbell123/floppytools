@@ -69,14 +69,12 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     // then read the rest of the sector ID
     if (flux_bits_mfm_read_sector_id(sid,fb,ev,fp) < 0) return;
 
-    if (sid.sector_size() != sector_size) {
-//        printf("Not what we're looking for, wrong sector size\n");
+    if (sid.sector_size() != sector_size)
         return;
-    }
+
     if (sid.sector < 1 || sid.sector > sectors ||
         sid.side < 0   || sid.side >= heads ||
         sid.track < 0  || sid.track >= tracks) {
-//        printf("Not what we're looking for, track/side/sector %d/%d/%d out of range\n",track,side,sector);
         return;
     }
 
