@@ -230,6 +230,26 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     captured[sector_num] = true;
 }
 
+bool mfm_find_sync(flux_bits &fb,struct kryoflux_event ev,FILE *fp) {
+    do {
+        kryoflux_bits_refill(fb,ev,fp);
+
+        while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
+            if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+                return true;
+            }
+            else {
+                fb.get(1);
+            }
+        }
+
+        if (!kryoflux_bits_refill(fb,ev,fp))
+            break;
+    } while (fb.avail() > 0);
+
+    return false;
+}
+
 int main(int argc,char **argv) {
     struct flux_bits fb;
     struct kryoflux_event ev;
@@ -315,27 +335,8 @@ int main(int argc,char **argv) {
                     fseek(fp,0,SEEK_SET);
                     fb.clear();
 
-                    do {
-                        kryoflux_bits_refill(fb,ev,fp);
-
-                        /*                                                      *            */
-                        /*                                            1 0 1 0 0 0 0 1   (A1) */
-                        /* look for A1 sync (100010010001). Look for '0100010010001001' */
-                        /*                                            ................  16 bits */
-                        /*                                            4-->4-->8-->9-->  */
-                        /*                                            3210321032103210  */
-                        while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
-                            if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
-                                process_sync(dsk_fp,fb,ev,fp);
-                            }
-                            else {
-                                fb.get(1);
-                            }
-                        }
-
-                        if (!kryoflux_bits_refill(fb,ev,fp))
-                            break;
-                    } while (fb.avail() > 0);
+                    while (mfm_find_sync(fb,ev,fp))
+                        process_sync(dsk_fp,fb,ev,fp);
                 }
 
                 {
