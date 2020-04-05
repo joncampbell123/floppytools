@@ -510,10 +510,7 @@ int flux_bits_mfm_read_sync_and_byte(struct flux_bits &fb,struct kryoflux_event 
     if ((c=flux_bits_mfm_skip_sync(fb,ev,fp)) < 3)
         return -1;
 
-    c = flux_bits_mfm_decode(fb,ev,fp);
-    if (c < 0) return -1; /* another A1 sync should not occur */
-
-    return c;
+    return flux_bits_mfm_decode(fb,ev,fp);
 }
 
 mfm_sector_id::mfm_sector_id() {
@@ -548,30 +545,37 @@ int flux_bits_mfm_read_sector_id(mfm_sector_id &sid,struct flux_bits &fb,struct 
     tmp[3] = (unsigned char)0xFE;
 
     int track = flux_bits_mfm_decode(fb,ev,fp);
-    if (track < 0) return -1;
+    if (track < 0)
+        return -MFM_READ_DECODE_ERROR;
     tmp[4] = sid.track = (unsigned char)track;
 
     int side = flux_bits_mfm_decode(fb,ev,fp);
-    if (side < 0) return -1;
+    if (side < 0)
+        return -MFM_READ_DECODE_ERROR;
     tmp[5] = sid.side = (unsigned char)side;
 
     int sector = flux_bits_mfm_decode(fb,ev,fp);
-    if (sector < 0) return -1;
+    if (sector < 0)
+        return -MFM_READ_DECODE_ERROR;
     tmp[6] = sid.sector = (unsigned char)sector;
 
     int ssize = flux_bits_mfm_decode(fb,ev,fp);
-    if (ssize < 0) return -1;
+    if (ssize < 0)
+        return -MFM_READ_DECODE_ERROR;
     tmp[7] = sid.sector_size_code = (unsigned char)ssize;
 
     unsigned int crc;
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return -1;//CRC-hi
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0)
+        return -MFM_READ_DECODE_ERROR;
     crc  = (unsigned int)c << 8;
 
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return -1;//CRC-hi
+    if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0)
+        return -MFM_READ_DECODE_ERROR;
     crc += (unsigned int)c;
 
     check = mfm_crc16fd_update(0xffff,tmp,8);
-    if (check != crc) return -1;
+    if (check != crc)
+        return -MFM_CRC_ERROR;
 
     sid.crc_ok = true;
     return 0;
@@ -598,7 +602,7 @@ int flux_bits_mfm_read_sector_data(unsigned char *buf,unsigned int sector_size,s
         kryoflux_bits_refill(fb,ev,fp);
 
         if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0)
-            return -1;
+            return -MFM_READ_DECODE_ERROR;
 
         buf[b] = (unsigned char)c;
     }
@@ -609,7 +613,7 @@ int flux_bits_mfm_read_sector_data(unsigned char *buf,unsigned int sector_size,s
         kryoflux_bits_refill(fb,ev,fp);
 
         if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0)
-            return -1;
+            return -MFM_READ_DECODE_ERROR;
 
         tmp[b] = (unsigned char)c;
     }
@@ -619,7 +623,7 @@ int flux_bits_mfm_read_sector_data(unsigned char *buf,unsigned int sector_size,s
     crc += (unsigned int)tmp[1u];
 
     if (check != crc)
-        return -1;
+        return -MFM_CRC_ERROR;
 
     return 0;
 }

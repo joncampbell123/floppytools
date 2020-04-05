@@ -83,6 +83,9 @@ int flux_bits_mfm_read_sector_data(unsigned char *buf,unsigned int sector_size,s
 #define MFM_A1_SYNC_BYTE    0xA1
 #define MFM_A1_SYNC_LENGTH  16
 
+#define MFM_CRC_ERROR               0x100
+#define MFM_READ_DECODE_ERROR       0x101
+
 /*-----*/
 /**
  * \file
