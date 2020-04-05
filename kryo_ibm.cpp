@@ -63,6 +63,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     //
     // (inter-sector gap filled with 4E)
 
+    // Read A1 sync bytes (min 3) followed by first byte after
     if ((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp)) != 0xFE) return;
 
     // factor the last 3 sync codes and the byte into the CRC
@@ -130,6 +131,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
         return;
     }
 
+    // Read A1 sync bytes (min 3) followed by first byte after
     c = flux_bits_mfm_read_sync_and_byte(fb,ev,fp);
     if (c < 0) return;
     if ((c&0xFE) != 0xFA) return;
