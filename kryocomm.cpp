@@ -508,7 +508,7 @@ int flux_bits_mfm_read_sync_and_byte(struct flux_bits &fb,struct kryoflux_event 
 
     // Require at least 3 sync codes, allow more to occur
     if ((c=flux_bits_mfm_skip_sync(fb,ev,fp)) < 3)
-        return -1;
+        return -MFM_READ_SYNC_ERROR;
 
     return flux_bits_mfm_decode(fb,ev,fp);
 }
