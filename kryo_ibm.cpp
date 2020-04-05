@@ -65,7 +65,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     // (inter-sector gap filled with 4E)
 
     // Read A1 sync bytes (min 3) followed by first byte after
-    if ((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp)) != 0xFE) return;
+    if (flux_bits_mfm_read_sync_and_byte(fb,ev,fp) != 0xFE) return;
     // then read the rest of the sector ID
     if (flux_bits_mfm_read_sector_id(sid,fb,ev,fp) < 0) return;
 
@@ -93,15 +93,11 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     printf("Sector: track=%u side=%u sector=%u ssize=%u\n",sid.track,sid.side,sid.sector,128 << sid.sector_size_code);
 
     // Find next sync header
-    if (!mfm_find_sync(fb,ev,fp)) {
-        fprintf(stderr,"Failed to find sync for #2\n");
+    if (!mfm_find_sync(fb,ev,fp))
         return;
-    }
 
     // Read A1 sync bytes (min 3) followed by first byte after
-    c = flux_bits_mfm_read_sync_and_byte(fb,ev,fp);
-    if (c < 0) return;
-    if ((c&0xFE) != 0xFA) return;
+    if (((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp))&0xFE) != 0xFA) return;
 
     // A1 A1 A1 FA/FB
     tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
