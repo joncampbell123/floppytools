@@ -57,11 +57,11 @@ bool kryoflux_read(struct kryoflux_event &ev,FILE *fp) {
             // value16
             if ((c = fgetc(fp)) < 0)
                 return false;
-            ev.flux_interval +=  (unsigned char)c;
+            ev.flux_interval += ((unsigned char)c << 8u);
 
             if ((c = fgetc(fp)) < 0)
                 return false;
-            ev.flux_interval += ((unsigned char)c << 8u);
+            ev.flux_interval +=  (unsigned char)c;
 
             return true;
         }
