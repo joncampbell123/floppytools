@@ -93,13 +93,22 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     printf("Sector: track=%u side=%u sector=%u ssize=%u\n",sid.track,sid.side,sid.sector,128 << sid.sector_size_code);
 
     // Find next sync header
-    if (!mfm_find_sync(fb,ev,fp))
+    if (!mfm_find_sync(fb,ev,fp)) {
+        printf("* Failed to find sync\n");
         return;
+    }
 
     // Read A1 sync bytes (min 3) followed by first byte after. Store the value in 'c' because 0xFA/0xFB is part of the checksum.
-    if (((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp))&0xFE) != 0xFA) return;
+    if (((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp))&0xFE) != 0xFA) {
+        printf("* Failed to find sector data sync, err=0x%x\n",-c);
+        return;
+    }
+
     // Then read the rest of the sector
-    if (flux_bits_mfm_read_sector_data(sector_buf,sid.sector_size(),fb,ev,fp,c) < 0) return;
+    if ((c=flux_bits_mfm_read_sector_data(sector_buf,sid.sector_size(),fb,ev,fp,c)) < 0) {
+        printf("* Failed to read sector data, err=0x%x\n",-c);
+        return;
+    }
 
     printf(" * DATA OK\n");
 
