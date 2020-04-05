@@ -87,10 +87,8 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     sector_num += (unsigned long)sid.sector - 1;
 
     assert(sector_num < captured.size());
-    if (captured[sector_num]) {
-//        printf("Already captured\n");
+    if (captured[sector_num])
         return;
-    }
 
     printf("Sector: track=%u side=%u sector=%u ssize=%u\n",sid.track,sid.side,sid.sector,128 << sid.sector_size_code);
 
