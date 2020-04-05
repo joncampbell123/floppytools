@@ -1,5 +1,6 @@
 
 #include <vector>
+#include <string>
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -18,6 +19,18 @@ struct kryoflux_event {
 };
 
 bool kryoflux_read(struct kryoflux_event &ev,FILE *fp);
+
+struct kryoflux_stream_info {
+    std::string         name;
+    double              sck;
+    double              ick;
+
+    kryoflux_stream_info();
+    void clear();
+};
+
+bool kryoflux_update_stream_info(struct kryoflux_stream_info &si,std::vector<unsigned char> &msg);
+void kryoflux_parse_stream_nv_pair(std::string &name,std::string &value,std::vector<unsigned char>::iterator &mi,const std::vector<unsigned char>::iterator mend);
 
 struct flux_bits {
     unsigned int        bits;

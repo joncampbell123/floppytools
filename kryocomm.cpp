@@ -359,3 +359,67 @@ crc16fd_t crc16fd_update(crc16fd_t crc, const void *data, size_t data_len)
 }
 /*-----*/
 
+kryoflux_stream_info::kryoflux_stream_info() {
+    clear();
+}
+
+void kryoflux_stream_info::clear() {
+    name.clear();
+    sck = 24027428.57142857;
+    ick = 3003428.571428571;
+}
+
+void kryoflux_parse_stream_nv_pair(std::string &name,std::string &value,std::vector<unsigned char>::iterator &mi,const std::vector<unsigned char>::iterator mend) {
+    name.clear();
+    value.clear();
+
+    /* leading space */
+    while (mi != mend && *mi == ' ') mi++;
+
+    /* name */
+    while (mi != mend) {
+        if (*mi == 0) return; /* end of string, return now */
+        if (*mi == '=') {
+            mi++; /* skip it and break to next loop */
+            break;
+        }
+        if (*mi == ',') {
+            mi++; /* skip it and return */
+            return;
+        }
+
+        name += *mi;
+        mi++;
+    }
+
+    /* value */
+    while (mi != mend) {
+        if (*mi == 0) return; /* end of string, return now */
+        if (*mi == ',') {
+            mi++; /* skip it and return */
+            return;
+        }
+
+        value += *mi;
+        mi++;
+    }
+}
+
+bool kryoflux_update_stream_info(struct kryoflux_stream_info &si,std::vector<unsigned char> &msg) {
+    std::string name,value;
+
+    std::vector<unsigned char>::iterator mi = msg.begin();
+    while (mi != msg.end() && *mi != 0) {
+        kryoflux_parse_stream_nv_pair(name,value,mi,msg.end());
+
+        if (name == "name")
+            si.name = value;
+        else if (name == "sck")
+            si.sck = atof(value.c_str());
+        else if (name == "ick")
+            si.ick = atof(value.c_str());
+    }
+
+    return true;
+}
+
