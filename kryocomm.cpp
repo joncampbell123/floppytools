@@ -433,3 +433,23 @@ FILE *kryo_fopen(const std::string &cappath,unsigned int track,unsigned int head
     return fopen(path.c_str(),"rb");
 }
 
+bool mfm_find_sync(flux_bits &fb,struct kryoflux_event ev,FILE *fp) {
+    do {
+        kryoflux_bits_refill(fb,ev,fp);
+
+        while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
+            if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+                return true;
+            }
+            else {
+                fb.get(1);
+            }
+        }
+
+        if (!kryoflux_bits_refill(fb,ev,fp))
+            break;
+    } while (fb.avail() > 0);
+
+    return false;
+}
+

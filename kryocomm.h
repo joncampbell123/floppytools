@@ -76,6 +76,7 @@ int flux_bits_mfm_decode(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp
 typedef uint16_t mfm_crc16fd_t;
 
 mfm_crc16fd_t mfm_crc16fd_update(mfm_crc16fd_t crc, const void *data, size_t data_len);
+bool mfm_find_sync(flux_bits &fb,struct kryoflux_event ev,FILE *fp);
 
 FILE *kryo_fopen(const std::string &cappath,unsigned int track,unsigned int head);
 
