@@ -60,6 +60,7 @@ struct mfm_sector_id { // 0xFE type packets
 
     mfm_sector_id();
     void clear(void);
+    unsigned int sector_size(void) const;
 };
 
 void kryo_save_state(struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);

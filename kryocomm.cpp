@@ -525,6 +525,13 @@ void mfm_sector_id::clear(void) {
     crc_ok = false;
 }
 
+unsigned int mfm_sector_id::sector_size(void) const {
+    if (sector_size_code < 8)
+        return 128u << sector_size_code;
+
+    return 0;
+}
+
 // at call:
 // caller just read A1 A1 A1 <byte> where <byte> == 0xFE
 // and the next bytes are the track, side, sector, sector_size and CRC fields.
