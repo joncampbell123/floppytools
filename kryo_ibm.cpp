@@ -39,6 +39,53 @@ std::vector<bool>       captured;
 // (inter-sector gap filled with 4E)
 
 // at call:
+// caller just read A1 A1 A1 <byte> where <byte> == 0xFA or 0xFB.
+// The next N bytes are the sector contents.
+int flux_bits_mfm_read_sector_data(unsigned char *buf,unsigned int sector_size,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp,int c) {
+    mfm_crc16fd_t check;
+    unsigned char tmp[4];
+
+    // A1 A1 A1 FA/FB
+    tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
+    tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
+    tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
+    tmp[3] = (unsigned char)c;
+
+    /* begin checksum */
+    check = mfm_crc16fd_update(0xffff,tmp,4);
+
+    // sector data follows
+    for (unsigned int b=0;b < sector_size;b++) {
+        kryoflux_bits_refill(fb,ev,fp);
+
+        if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0)
+            return -1;
+
+        buf[b] = (unsigned char)c;
+    }
+    check = mfm_crc16fd_update(check,buf,sector_size);
+
+    // followed by checksum
+    for (unsigned int b=0;b < 2;b++) {
+        kryoflux_bits_refill(fb,ev,fp);
+
+        if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0)
+            return -1;
+
+        tmp[b] = (unsigned char)c;
+    }
+
+    unsigned int crc;
+    crc  = (unsigned int)tmp[0u] << 8u;
+    crc += (unsigned int)tmp[1u];
+
+    if (check != crc)
+        return -1;
+
+    return 0;
+}
+
+// at call:
 // fb.peek() == A1 sync
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     unsigned char tmp[128];
@@ -98,45 +145,12 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
 
     // Read A1 sync bytes (min 3) followed by first byte after. Store the value in 'c' because 0xFA/0xFB is part of the checksum.
     if (((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp))&0xFE) != 0xFA) return;
-
-    // A1 A1 A1 FA/FB
-    tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
-    tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
-    tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
-    tmp[3] = (unsigned char)c;
-
-    /* begin checksum */
-    check = mfm_crc16fd_update(0xffff,tmp,4);
-
-    // sector data follows
-    for (unsigned int b=0;b < (sector_size+2);b++) {
-        kryoflux_bits_refill(fb,ev,fp);
-
-        unsigned long cstart = ev.offset;
-        unsigned int cpeek = fb.peek(16);
-
-        if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) {
-            printf(" ! flux error in sector (%d) at byte %u / %u (flux 0x%04x offset %lu)\n",c,b,sector_size,cpeek,cstart);
-            return;
-        }
-        sector_buf[b] = (unsigned char)c;
-    }
-    check = mfm_crc16fd_update(check,sector_buf,sector_size);
-
-    unsigned int crc;
-    crc  = (unsigned int)sector_buf[sector_size+0u] << 8u;
-    crc += (unsigned int)sector_buf[sector_size+1u];
-
-    if (check != crc) {
-        printf("Sector checkum failed\n");
-        return;
-    }
+    // Then read the rest of the sector
+    if (flux_bits_mfm_read_sector_data(sector_buf,sid.sector_size(),fb,ev,fp,c) < 0) return;
 
     printf(" * DATA OK\n");
 
-    unsigned long sector_ofs;
-
-    sector_ofs = sector_num * (unsigned long)sector_size;
+    unsigned long sector_ofs = sector_num * (unsigned long)sector_size;
 
     fseek(dsk_fp,sector_ofs,SEEK_SET);
     if (ftell(dsk_fp) != sector_ofs) return;
