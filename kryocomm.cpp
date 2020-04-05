@@ -90,6 +90,7 @@ bool kryoflux_read(struct kryoflux_event &ev,FILE *fp) {
                 ev.msg[i] = (unsigned char)c;
             }
 
+            ev.message = MSG_OOB;
             ev.oob_code = type;
 
             return true;
