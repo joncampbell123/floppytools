@@ -423,3 +423,13 @@ bool kryoflux_update_stream_info(struct kryoflux_stream_info &si,std::vector<uns
     return true;
 }
 
+FILE *kryo_fopen(const std::string &cappath,unsigned int track,unsigned int head) {
+    std::string path;
+    char tmp[128];
+
+    sprintf(tmp,"track%02u.%u.raw",track,head);
+    path = cappath + "/" + tmp;
+
+    return fopen(path.c_str(),"rb");
+}
+

@@ -1,10 +1,17 @@
 
-BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryofluxplot
+BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryofluxplot kryo_ibm
 
 all: $(BINS)
 
 clean:
 	rm -f $(BINS) *.o graph.csv graph.gnuplot graph.png disk.img
+
+kryo_ibm: kryo_ibm.o kryocomm.o
+	g++ -o $@ kryo_ibm.o kryocomm.o
+
+kryo_ibm.o: kryo_ibm.cpp
+	g++ -std=gnu++0x -c -o $@ $<
+
 
 kryoflux1: kryoflux1.o kryocomm.o
 	g++ -o $@ kryoflux1.o kryocomm.o

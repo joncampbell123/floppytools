@@ -77,3 +77,5 @@ typedef uint16_t mfm_crc16fd_t;
 
 mfm_crc16fd_t mfm_crc16fd_update(mfm_crc16fd_t crc, const void *data, size_t data_len);
 
+FILE *kryo_fopen(const std::string &cappath,unsigned int track,unsigned int head);
+
