@@ -90,27 +90,25 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     if (captured[sector_num])
         return;
 
-    printf("Sector: track=%u side=%u sector=%u ssize=%u\n",sid.track,sid.side,sid.sector,128 << sid.sector_size_code);
-
     // Find next sync header
     if (!mfm_find_sync(fb,ev,fp)) {
-        printf("* Failed to find sync\n");
+//      printf("* Failed to find sync\n");
         return;
     }
 
     // Read A1 sync bytes (min 3) followed by first byte after. Store the value in 'c' because 0xFA/0xFB is part of the checksum.
     if (((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp))&0xFE) != 0xFA) {
-        printf("* Failed to find sector data sync, err=0x%x\n",-c);
+//      printf("* Failed to find sector data sync, err=0x%x\n",-c);
         return;
     }
 
     // Then read the rest of the sector
     if ((c=flux_bits_mfm_read_sector_data(sector_buf,sid.sector_size(),fb,ev,fp,c)) < 0) {
-        printf("* Failed to read sector data, err=0x%x\n",-c);
+//      printf("* Failed to read sector data, err=0x%x\n",-c);
         return;
     }
 
-    printf(" * DATA OK\n");
+    printf("Sector: track=%u side=%u sector=%u ssize=%u\n",sid.track,sid.side,sid.sector,128 << sid.sector_size_code);
 
     unsigned long sector_ofs = sector_num * (unsigned long)sector_size;
 
@@ -189,27 +187,48 @@ int main(int argc,char **argv) {
                 flux_bits ofb = fb;
                 unsigned int capcount = 0;
 
+                int adj_span = 8;
+                int dadj_span = 8;
+
+                for (int adj_c = 0;adj_c <= (adj_span*2);adj_c++) {
+                    for (int dadj_c = 0;dadj_c <= (dadj_span*2);dadj_c++) {
+                        unsigned int capcount = 0;
+
+                        int adj = adj_c;
+                        int dadj = dadj_c;
+
+                        if (adj >= (adj_span+1)) adj -= adj_span*2;
+                        if (dadj >= (dadj_span+1)) dadj -= dadj_span*2;
+
+                        if ((int)ofb.shortest+(int)adj <= 0)
+                            continue;
+                        fb.shortest = ofb.shortest + adj;
+
+                        if ((int)ofb.dist+(int)dadj <= 0)
+                            continue;
+                        fb.dist = ofb.dist + dadj;
+
+                        unsigned long snum = ((track * heads) + head) * sectors;
+
+                        for (size_t i=0;i < sectors;i++)
+                            capcount += captured[i+snum];
+
+                        if (capcount >= sectors)
+                            break;
+
+                        fseek(fp,0,SEEK_SET);
+                        fb.clear();
+
+                        while (mfm_find_sync(fb,ev,fp))
+                            process_sync(dsk_fp,fb,ev,fp);
+                    }
+                }
+
                 {
                     unsigned long snum = ((track * heads) + head) * sectors;
-
-                    for (size_t i=0;i < sectors;i++)
-                        capcount += captured[i+snum];
-
-                    if (capcount >= sectors) {
-                        printf("Track %u head %u already captured\n",track,head);
-                        break;
-                    }
-                    else {
-                        printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
-                        for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
-                        printf("\n");
-                    }
-
-                    fseek(fp,0,SEEK_SET);
-                    fb.clear();
-
-                    while (mfm_find_sync(fb,ev,fp))
-                        process_sync(dsk_fp,fb,ev,fp);
+                    printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
+                    for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
+                    printf("\n");
                 }
 
                 {
