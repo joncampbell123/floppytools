@@ -40,6 +40,27 @@ std::vector<bool>       captured;
 
 // at call:
 // fb.peek() == A1 sync
+// returns:
+// number of sync codes
+int flux_bits_mfm_skip_sync(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    int count=0,c;
+
+    kryoflux_bits_refill(fb,ev,fp);
+    while (fb.avail() >= MFM_A1_SYNC_LENGTH && fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
+        c=flux_bits_mfm_decode(fb,ev,fp);
+        if (c != -MFM_A1_SYNC_BYTE) {
+            if (c < 0) break;
+        }
+
+        kryoflux_bits_refill(fb,ev,fp);
+        count++;
+    }
+
+    return count;
+}
+
+// at call:
+// fb.peek() == A1 sync
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     unsigned char tmp[128];
     unsigned int count;
@@ -63,13 +84,15 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     //
     // (inter-sector gap filled with 4E)
 
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
+    // Require at least 3 sync codes, allow more to occur
+    if ((c=flux_bits_mfm_skip_sync(fb,ev,fp)) < 3) {
+        fprintf(stderr,"sync fail %d\n",c);
+        return;
+    }
+
+    // factor the last 3 sync codes into the CRC
     tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
-
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
     tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
-
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
     tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
 
     // we are expecting FE
@@ -129,60 +152,21 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
 
     printf("Sector: track=%u side=%u sector=%u ssize=%u\n",track,side,sector,128 << ssize);
 
-    /* 4E 4E .... */
-    {
-        unsigned int errs = 0;
-
-        for (count=0;count < 16;count++) {
-            c = flux_bits_mfm_decode(fb,ev,fp);
-
-            if (c == 0x4E) {
-            }
-            else if (c == 0x00) {
-                break;
-            }
-            else if (c < 0) {
-                printf("* Gap between A1 sync where 4E should exist ends abruptly\n");
-                break;
-            }
-            else {
-                if (++errs >= 8) {
-                    printf("* Gap between A1 sync has too many non-4E bytes\n");
-                    break;
-                }
-            }
-        }
-
-        if (count < 8)
-            printf("* Too few 4E bytes\n");
-    }
-
-    /* look for A1 sync.
-     * mem_decode() won't reliably find it */
-    kryoflux_bits_refill(fb,ev,fp);
-    while (fb.avail() >= MFM_A1_SYNC_LENGTH) {
-        if (fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
-            break;
-        }
-        else {
-            fb.get(1);
-        }
-
-        if (!kryoflux_bits_refill(fb,ev,fp))
-            return;
-    }
-
-    if (fb.avail() < MFM_A1_SYNC_LENGTH)
+    // Find next sync header
+    if (!mfm_find_sync(fb,ev,fp)) {
+        fprintf(stderr,"Failed to find sync for #2\n");
         return;
+    }
+
+    // Require at least 3 sync codes, allow more to occur
+    if ((c=flux_bits_mfm_skip_sync(fb,ev,fp)) < 3) {
+        fprintf(stderr,"sync fail #2 %d\n",c);
+        return;
+    }
 
     // A1 A1 A1 FA/FB
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
     tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
-
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
     tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
-
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != -MFM_A1_SYNC_BYTE) return; // A1
     tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
 
     // we are expecting FA/FB
