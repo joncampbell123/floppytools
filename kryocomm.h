@@ -77,6 +77,7 @@ int flux_bits_mfm_decode(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp
 int flux_bits_mfm_skip_sync(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 int flux_bits_mfm_read_sync_and_byte(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 int flux_bits_mfm_read_sector_id(mfm_sector_id &sid,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+int flux_bits_mfm_read_sector_data(unsigned char *buf,unsigned int sector_size,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp,int c);
 
 #define MFM_A1_SYNC         0x4489
 #define MFM_A1_SYNC_BYTE    0xA1
