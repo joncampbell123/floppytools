@@ -499,6 +499,10 @@ int flux_bits_mfm_skip_sync(struct flux_bits &fb,struct kryoflux_event &ev,FILE 
 // Reads A1 A1 A1 <byte>
 //
 // Where byte is normally 0xFE (sector ID) or 0xFA/0xFB (sector data)
+//
+// The expectation is that you will read the rest of the data following it, into an unsigned
+// char array, where the first four bytes are 0xA1 0xA1 0xA1 <byte> and fill the other bytes
+// in to it so the checksum can be done.
 int flux_bits_mfm_read_sync_and_byte(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     int c;
 
