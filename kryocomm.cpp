@@ -453,3 +453,13 @@ bool mfm_find_sync(flux_bits &fb,struct kryoflux_event ev,FILE *fp) {
     return false;
 }
 
+void kryo_save_state(struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    st.last_event_offset = ev.offset;
+    st.fb = fb;
+}
+
+void kryo_restore_state(const struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    if (fp != NULL) fseek(fp,st.last_event_offset,SEEK_SET);
+    fb = st.fb;
+}
+

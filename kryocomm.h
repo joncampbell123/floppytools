@@ -29,9 +29,6 @@ struct kryoflux_stream_info {
     void clear();
 };
 
-bool kryoflux_update_stream_info(struct kryoflux_stream_info &si,std::vector<unsigned char> &msg);
-void kryoflux_parse_stream_nv_pair(std::string &name,std::string &value,std::vector<unsigned char>::iterator &mi,const std::vector<unsigned char>::iterator mend);
-
 struct flux_bits {
     unsigned int        bits;
     unsigned int        left;
@@ -45,6 +42,17 @@ struct flux_bits {
     unsigned int        peek(unsigned int bc) const;
     unsigned int        get(unsigned int bc);
 };
+
+struct kryo_savestate {
+    off_t               last_event_offset;
+    struct flux_bits    fb;
+};
+
+void kryo_save_state(struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+void kryo_restore_state(const struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
+
+bool kryoflux_update_stream_info(struct kryoflux_stream_info &si,std::vector<unsigned char> &msg);
+void kryoflux_parse_stream_nv_pair(std::string &name,std::string &value,std::vector<unsigned char>::iterator &mi,const std::vector<unsigned char>::iterator mend);
 
 bool kryoflux_bits_refill(flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
 bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
