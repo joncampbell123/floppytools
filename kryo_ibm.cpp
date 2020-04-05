@@ -40,27 +40,6 @@ std::vector<bool>       captured;
 
 // at call:
 // fb.peek() == A1 sync
-// returns:
-// number of sync codes
-int flux_bits_mfm_skip_sync(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
-    int count=0,c;
-
-    kryoflux_bits_refill(fb,ev,fp);
-    while (fb.avail() >= MFM_A1_SYNC_LENGTH && fb.peek(MFM_A1_SYNC_LENGTH) == MFM_A1_SYNC) {
-        c=flux_bits_mfm_decode(fb,ev,fp);
-        if (c != -MFM_A1_SYNC_BYTE) {
-            if (c < 0) break;
-        }
-
-        kryoflux_bits_refill(fb,ev,fp);
-        count++;
-    }
-
-    return count;
-}
-
-// at call:
-// fb.peek() == A1 sync
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     unsigned char tmp[128];
     unsigned int count;
