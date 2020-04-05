@@ -73,7 +73,7 @@ int flux_bits_mfm_decode(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp
  *  - Algorithm     = table-driven
  */
 
-typedef uint16_t crc16fd_t;
+typedef uint16_t mfm_crc16fd_t;
 
-crc16fd_t crc16fd_update(crc16fd_t crc, const void *data, size_t data_len);
+mfm_crc16fd_t mfm_crc16fd_update(mfm_crc16fd_t crc, const void *data, size_t data_len);
 

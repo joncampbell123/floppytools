@@ -26,7 +26,7 @@ std::vector<bool>       captured;
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     unsigned char tmp[128];
     unsigned int count;
-    crc16fd_t check;
+    mfm_crc16fd_t check;
     int c;
 
     // A1 A1 A1
@@ -82,7 +82,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     if ((c=flux_bits_mfm_decode(fb,ev,fp)) < 0) return;//CRC-hi
     crc += (unsigned int)c;
 
-    check = crc16fd_update(0xffff,tmp,8);
+    check = mfm_crc16fd_update(0xffff,tmp,8);
     if (check != crc) return;
 
     if ((128 << ssize) != sector_size) {
@@ -173,7 +173,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     tmp[3] = (unsigned char)c;
 
     /* begin checksum */
-    check = crc16fd_update(0xffff,tmp,4);
+    check = mfm_crc16fd_update(0xffff,tmp,4);
 
     // sector data follows
     for (unsigned int b=0;b < (sector_size+2);b++) {
@@ -188,7 +188,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
         }
         sector_buf[b] = (unsigned char)c;
     }
-    check = crc16fd_update(check,sector_buf,sector_size);
+    check = mfm_crc16fd_update(check,sector_buf,sector_size);
 
     crc  = (unsigned int)sector_buf[sector_size+0u] << 8u;
     crc += (unsigned int)sector_buf[sector_size+1u];

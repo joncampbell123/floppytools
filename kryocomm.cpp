@@ -310,7 +310,7 @@ int flux_bits_mfm_decode(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp
 /**
  * Static table used for the table_driven implementation.
  */
-static const crc16fd_t crc16fd_table[256] = {
+static const mfm_crc16fd_t mfm_crc16fd_table[256] = {
     0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
     0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
     0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7, 0x62d6,
@@ -345,14 +345,14 @@ static const crc16fd_t crc16fd_table[256] = {
     0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
 };
 
-crc16fd_t crc16fd_update(crc16fd_t crc, const void *data, size_t data_len)
+mfm_crc16fd_t mfm_crc16fd_update(mfm_crc16fd_t crc, const void *data, size_t data_len)
 {
     const unsigned char *d = (const unsigned char *)data;
     unsigned int tbl_idx;
 
     while (data_len--) {
         tbl_idx = ((crc >> 8) ^ *d) & 0xff;
-        crc = (crc16fd_table[tbl_idx] ^ (crc << 8)) & 0xffff;
+        crc = (mfm_crc16fd_table[tbl_idx] ^ (crc << 8)) & 0xffff;
         d++;
     }
     return crc & 0xffff;
