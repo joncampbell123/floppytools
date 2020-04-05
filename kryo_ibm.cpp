@@ -96,7 +96,7 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     if (!mfm_find_sync(fb,ev,fp))
         return;
 
-    // Read A1 sync bytes (min 3) followed by first byte after
+    // Read A1 sync bytes (min 3) followed by first byte after. Store the value in 'c' because 0xFA/0xFB is part of the checksum.
     if (((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp))&0xFE) != 0xFA) return;
 
     // A1 A1 A1 FA/FB
