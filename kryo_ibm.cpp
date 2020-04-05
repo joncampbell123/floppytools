@@ -40,6 +40,27 @@ std::vector<bool>       captured;
 
 // at call:
 // fb.peek() == A1 sync
+//
+// Reads A1 A1 A1 <byte>
+//
+// Where byte is normally 0xFE (sector ID) or 0xFA/0xFB (sector data)
+int flux_bits_mfm_read_sync_and_byte(struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+    int c;
+
+    // Require at least 3 sync codes, allow more to occur
+    if ((c=flux_bits_mfm_skip_sync(fb,ev,fp)) < 3) {
+        fprintf(stderr,"sync fail %d\n",c);
+        return -1;
+    }
+
+    c = flux_bits_mfm_decode(fb,ev,fp);
+    if (c < 0) return -1; /* another A1 sync should not occur */
+
+    return c;
+}
+
+// at call:
+// fb.peek() == A1 sync
 void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
     unsigned char tmp[128];
     unsigned int count;
@@ -63,19 +84,12 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     //
     // (inter-sector gap filled with 4E)
 
-    // Require at least 3 sync codes, allow more to occur
-    if ((c=flux_bits_mfm_skip_sync(fb,ev,fp)) < 3) {
-        fprintf(stderr,"sync fail %d\n",c);
-        return;
-    }
+    if ((c=flux_bits_mfm_read_sync_and_byte(fb,ev,fp)) != 0xFE) return;
 
-    // factor the last 3 sync codes into the CRC
+    // factor the last 3 sync codes and the byte into the CRC
     tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
     tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
     tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
-
-    // we are expecting FE
-    if ((c=flux_bits_mfm_decode(fb,ev,fp)) != 0xFE) return; // FE
     tmp[3] = (unsigned char)c;
 
     int track = flux_bits_mfm_decode(fb,ev,fp);
@@ -137,19 +151,14 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
         return;
     }
 
-    // Require at least 3 sync codes, allow more to occur
-    if ((c=flux_bits_mfm_skip_sync(fb,ev,fp)) < 3) {
-        fprintf(stderr,"sync fail #2 %d\n",c);
-        return;
-    }
+    c = flux_bits_mfm_read_sync_and_byte(fb,ev,fp);
+    if (c < 0) return;
+    if ((c&0xFE) != 0xFA) return;
 
     // A1 A1 A1 FA/FB
     tmp[0] = (unsigned char)MFM_A1_SYNC_BYTE;
     tmp[1] = (unsigned char)MFM_A1_SYNC_BYTE;
     tmp[2] = (unsigned char)MFM_A1_SYNC_BYTE;
-
-    // we are expecting FA/FB
-    if (((c=flux_bits_mfm_decode(fb,ev,fp))&0xFE) != 0xFA) return; // FA/FB
     tmp[3] = (unsigned char)c;
 
     /* begin checksum */
