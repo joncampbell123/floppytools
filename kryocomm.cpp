@@ -463,3 +463,12 @@ void kryo_restore_state(const struct kryo_savestate &st,struct flux_bits &fb,str
     fb = st.fb;
 }
 
+kryo_savestate::kryo_savestate() {
+    clear();
+}
+
+void kryo_savestate::clear(void) {
+    fb.clear();
+    last_event_offset = 0;
+}
+

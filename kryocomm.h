@@ -46,6 +46,9 @@ struct flux_bits {
 struct kryo_savestate {
     off_t               last_event_offset;
     struct flux_bits    fb;
+
+                        kryo_savestate();
+    void                clear(void);
 };
 
 void kryo_save_state(struct kryo_savestate &st,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp);
