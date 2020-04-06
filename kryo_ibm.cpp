@@ -177,14 +177,13 @@ int main(int argc,char **argv) {
     /* sector size auto-detect */
     for (size_t capidx=0;capidx < cappaths.size();capidx++) {
         if (sector_size == 0) {
+            printf("Auto-detecting sector size...\n");
+
             FILE *fp = kryo_fopen(cappaths[capidx],0/*track*/,0/*head*/);
-            if (fp == NULL) {
-                printf("Failed to open\n");
+            if (fp == NULL)
                 continue;
-            }
 
             if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
-                fprintf(stderr,"Autodetect failure\n");
                 fclose(fp);
                 continue;
             }
@@ -231,14 +230,13 @@ int main(int argc,char **argv) {
     /* double track detect. Read track 2 and see how they are marked. This is needed to support 360KB DD floppies imaged by a 1.2MB HD drive. */
     for (size_t capidx=0;capidx < cappaths.size();capidx++) {
         if (sector_size != 0 && double_track == 0) {
+            printf("Auto-detecting double/single track...\n");
+
             FILE *fp = kryo_fopen(cappaths[capidx],2/*track*/,0/*head*/);
-            if (fp == NULL) {
-                printf("Failed to open\n");
+            if (fp == NULL)
                 continue;
-            }
 
             if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
-                fprintf(stderr,"Autodetect failure\n");
                 fclose(fp);
                 continue;
             }
@@ -280,15 +278,14 @@ int main(int argc,char **argv) {
     /* sectors per track autodetect. scan multiple tracks in case of missing/unreadable sectors in track 0 */
     for (size_t capidx=0;capidx < cappaths.size();capidx++) {
         if (sectors == 0 && sector_size != 0 && double_track != 0) {
+            printf("Auto-detecting sectors per track...\n");
+
             for (unsigned int track=0;track < 20;track++) {
                 FILE *fp = kryo_fopen(cappaths[capidx],track*double_track/*track*/,0/*head*/);
-                if (fp == NULL) {
-                    printf("Failed to open\n");
+                if (fp == NULL)
                     continue;
-                }
 
                 if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
-                    fprintf(stderr,"Autodetect failure\n");
                     fclose(fp);
                     continue;
                 }
@@ -324,15 +321,14 @@ int main(int argc,char **argv) {
         if (sectors != 0 && sector_size != 0 && double_track != 0 && heads == 0) {
             unsigned int sectors2 = 0;
 
+            printf("Auto-detecting heads...\n");
+
             for (unsigned int track=0;track < 20;track++) {
                 FILE *fp = kryo_fopen(cappaths[capidx],track*double_track/*track*/,1/*head*/);
-                if (fp == NULL) {
-                    printf("Failed to open\n");
+                if (fp == NULL)
                     continue;
-                }
 
                 if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
-                    fprintf(stderr,"Autodetect failure\n");
                     fclose(fp);
                     continue;
                 }
@@ -371,19 +367,18 @@ int main(int argc,char **argv) {
     /* number of tracks */
     for (size_t capidx=0;capidx < cappaths.size();capidx++) {
         if (sectors != 0 && sector_size != 0 && double_track != 0 && heads != 0 && tracks == 0) {
+            printf("Auto-detecting tracks...\n");
+
             for (unsigned int track=0;track < (84/double_track);track++) {
                 unsigned long sectcount = 0;
                 unsigned long sectmin = (sectors / 4) * heads; /* in case of damaged or lost sectors */
 
                 for (unsigned int head=0;head < heads;head++) {
                     FILE *fp = kryo_fopen(cappaths[capidx],track*double_track/*track*/,head/*head*/);
-                    if (fp == NULL) {
-                        printf("Failed to open\n");
+                    if (fp == NULL)
                         continue;
-                    }
 
                     if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
-                        fprintf(stderr,"Autodetect failure\n");
                         fclose(fp);
                         continue;
                     }
