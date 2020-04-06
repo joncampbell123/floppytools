@@ -16,6 +16,7 @@ unsigned int            sectors = 0;
 unsigned int            heads = 0;
 unsigned int            tracks = 0;
 unsigned int            sector_size = 0;
+unsigned int            double_track = 0;       /* i.e. 360KB DD disk captured in 1.2MB HD drive. 0=unknown 1=single 2=double */
 
 unsigned char           sector_buf[16384+16];
 
@@ -154,6 +155,12 @@ int main(int argc,char **argv) {
                 tracks = 80;
                 sector_size = 512;
             }
+            else if (!strcmp(a,"sside")) {
+                heads = 1;
+            }
+            else if (!strcmp(a,"dside")) {
+                heads = 2;
+            }
             else {
                 fprintf(stderr,"Unknown switch %s\n",a);
                 return 1;
@@ -167,12 +174,115 @@ int main(int argc,char **argv) {
     dsk_fp = fopen("disk.img","wb");
     if (dsk_fp == NULL) return 1;
 
-    if (heads == 0 || sectors == 0 || tracks == 0 || sector_size == 0) {
+    /* sector size auto-detect */
+    for (size_t capidx=0;capidx < cappaths.size();capidx++) {
+        if (sector_size == 0) {
+            FILE *fp = kryo_fopen(cappaths[capidx],0/*track*/,0/*head*/);
+            if (fp == NULL) {
+                printf("Failed to open\n");
+                continue;
+            }
+
+            if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
+                fprintf(stderr,"Autodetect failure\n");
+                fclose(fp);
+                continue;
+            }
+
+            flux_bits ofb = fb;
+
+            fseek(fp,0,SEEK_SET);
+            fb.clear();
+
+            static const unsigned int max_sector = 40; /* more than enough for even 2.88MB formats */
+            unsigned long count_sszcode[max_sector] = {0};
+
+            while (mfm_find_sync(fb,ev,fp)) {
+                mfm_sector_id sid;
+
+                if (flux_bits_mfm_read_sync_and_byte(fb,ev,fp) != 0xFE) continue;
+                if (flux_bits_mfm_read_sector_id(sid,fb,ev,fp) < 0) continue;
+
+                /* this is a read from track 0 head 0, make sure it matches */
+                if (sid.track != 0 || sid.side != 0) continue;
+                if (sid.sector_size_code < max_sector) count_sszcode[sid.sector_size_code]++;
+            }
+
+            /* scan the histogram for the most common sector size */
+            {
+                int sel = -1;
+                unsigned long sel_count = 0;
+                for (unsigned int i=0;i < max_sector;i++) {
+                    if (sel_count < count_sszcode[i]) {
+                        sel_count = count_sszcode[i];
+                        sel = i;
+                    }
+                }
+
+                if (sel_count >= 6 && sel >= 0) {
+                    sector_size = 128u << (unsigned int)sel;
+                }
+            }
+
+            fclose(fp);
+        }
+    }
+
+    /* double track detect. Read track 2 and see how they are marked. This is needed to support 360KB DD floppies imaged by a 1.2MB HD drive. */
+    for (size_t capidx=0;capidx < cappaths.size();capidx++) {
+        if (sector_size != 0 && double_track == 0) {
+            FILE *fp = kryo_fopen(cappaths[capidx],2/*track*/,0/*head*/);
+            if (fp == NULL) {
+                printf("Failed to open\n");
+                continue;
+            }
+
+            if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
+                fprintf(stderr,"Autodetect failure\n");
+                fclose(fp);
+                continue;
+            }
+
+            flux_bits ofb = fb;
+
+            fseek(fp,0,SEEK_SET);
+            fb.clear();
+
+            unsigned long count_1x = 0;
+            unsigned long count_2x = 0;
+
+            while (mfm_find_sync(fb,ev,fp)) {
+                mfm_sector_id sid;
+
+                if (flux_bits_mfm_read_sync_and_byte(fb,ev,fp) != 0xFE) continue;
+                if (flux_bits_mfm_read_sector_id(sid,fb,ev,fp) < 0) continue;
+
+                /* this is a read from track 0 head 0, make sure it matches */
+                if (sid.side != 0) continue;
+                if (sid.sector_size() != sector_size) continue;
+
+                if (sid.track == 1/*DD in HD case*/) count_2x++;
+                else if (sid.track == 2/*HD in HD case or normal floppy*/) count_1x++;
+            }
+
+            /* scan the histogram for the most common sector size */
+            if (count_1x >= 4 || count_2x >= 4) {
+                if (count_2x > (count_1x / 2u))
+                    double_track = 2;
+                else if (count_1x > (count_2x / 2u))
+                    double_track = 1;
+            }
+
+            fclose(fp);
+        }
+    }
+
+    printf("Using disk geometry C/H/S/Sz %u/%u/%u/%u doubletrack=%u\n",tracks,heads,sectors,sector_size,double_track);
+    if (heads == 0 || sectors == 0 || tracks == 0 || sector_size == 0 || double_track == 0) {
         fprintf(stderr,"Unable to detect format\n");
         return 1;
     }
 
-    printf("Using disk geometry C/H/S/Sz %u/%u/%u/%u\n",tracks,heads,sectors,sector_size);
     captured.resize(heads * sectors * tracks);
 
     for (size_t capidx=0;capidx < cappaths.size();capidx++) {
