@@ -12,10 +12,10 @@
 #include "kryocomm.h"
 
 // default 1.44MB floppy
-unsigned int            sectors = 18;
-unsigned int            heads = 2;
-unsigned int            tracks = 80;
-unsigned int            sector_size = 512;
+unsigned int            sectors = 0;
+unsigned int            heads = 0;
+unsigned int            tracks = 0;
+unsigned int            sector_size = 0;
 
 unsigned char           sector_buf[16384+16];
 
@@ -167,6 +167,12 @@ int main(int argc,char **argv) {
     dsk_fp = fopen("disk.img","wb");
     if (dsk_fp == NULL) return 1;
 
+    if (heads == 0 || sectors == 0 || tracks == 0 || sector_size == 0) {
+        fprintf(stderr,"Unable to detect format\n");
+        return 1;
+    }
+
+    printf("Using disk geometry C/H/S/Sz %u/%u/%u/%u\n",tracks,heads,sectors,sector_size);
     captured.resize(heads * sectors * tracks);
 
     for (size_t capidx=0;capidx < cappaths.size();capidx++) {
