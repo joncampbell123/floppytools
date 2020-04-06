@@ -523,6 +523,7 @@ int main(int argc,char **argv) {
         }
     }
 
+    printf("Using disk geometry C/H/S/Sz %u/%u/%u/%u doubletrack=%u\n",tracks,heads,sectors,sector_size,double_track);
     fclose(dsk_fp);
     return 0;
 }
