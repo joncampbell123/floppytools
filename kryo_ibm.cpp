@@ -424,7 +424,7 @@ int main(int argc,char **argv) {
             for (unsigned int head=0;head < heads;head++) {
                 printf("Track %u head %u\n",track,head);
 
-                FILE *fp = kryo_fopen(cappaths[capidx],track,head);
+                FILE *fp = kryo_fopen(cappaths[capidx],track*double_track,head);
                 if (fp == NULL) {
                     printf("Failed to open\n");
                     continue;
