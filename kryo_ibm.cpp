@@ -368,6 +368,54 @@ int main(int argc,char **argv) {
         }
     }
 
+    /* number of tracks */
+    for (size_t capidx=0;capidx < cappaths.size();capidx++) {
+        if (sectors != 0 && sector_size != 0 && double_track != 0 && heads != 0 && tracks == 0) {
+            for (unsigned int track=0;track < (84/double_track);track++) {
+                unsigned long sectcount = 0;
+                unsigned long sectmin = (sectors / 4) * heads; /* in case of damaged or lost sectors */
+
+                for (unsigned int head=0;head < heads;head++) {
+                    FILE *fp = kryo_fopen(cappaths[capidx],track*double_track/*track*/,head/*head*/);
+                    if (fp == NULL) {
+                        printf("Failed to open\n");
+                        continue;
+                    }
+
+                    if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
+                        fprintf(stderr,"Autodetect failure\n");
+                        fclose(fp);
+                        continue;
+                    }
+
+                    flux_bits ofb = fb;
+
+                    fseek(fp,0,SEEK_SET);
+                    fb.clear();
+
+                    while (mfm_find_sync(fb,ev,fp)) {
+                        mfm_sector_id sid;
+
+                        if (flux_bits_mfm_read_sync_and_byte(fb,ev,fp) != 0xFE) continue;
+                        if (flux_bits_mfm_read_sector_id(sid,fb,ev,fp) < 0) continue;
+
+                        /* this is a read from track <track> head <head>, make sure it matches */
+                        if (sid.track != track || sid.side != head || sid.sector_size() != sector_size || sid.sector > sectors) continue;
+
+                        sectcount++;
+                    }
+
+                    fclose(fp);
+                }
+
+                if (sectcount >= sectmin) {
+                    if (tracks <= track)
+                        tracks = track + 1;
+                }
+            }
+        }
+    }
+
     printf("Using disk geometry C/H/S/Sz %u/%u/%u/%u doubletrack=%u\n",tracks,heads,sectors,sector_size,double_track);
     if (heads == 0 || sectors == 0 || tracks == 0 || sector_size == 0 || double_track == 0) {
         fprintf(stderr,"Unable to detect format\n");
