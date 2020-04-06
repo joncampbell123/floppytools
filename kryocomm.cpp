@@ -201,7 +201,7 @@ bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FIL
     unsigned long peak_max[3];
     unsigned int peak_idx[3];
 
-    fprintf(stderr,"autoscan: min=%lu max=%lu cutoff=%lu\n",min,max,cutoff);
+//  fprintf(stderr,"autoscan: min=%lu max=%lu cutoff=%lu\n",min,max,cutoff);
 
     for (unsigned int peak=0;peak < 3;peak++) {
         peak_max[peak] = 0;
@@ -216,9 +216,9 @@ bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FIL
         }
     }
 
-    printf("autoscan: peaks at %u, %u, %u [%lu, %lu, %lu]\n",
-        peak_idx[0],peak_idx[1],peak_idx[2],
-        peak_max[0],peak_max[1],peak_max[2]);
+//    printf("autoscan: peaks at %u, %u, %u [%lu, %lu, %lu]\n",
+//        peak_idx[0],peak_idx[1],peak_idx[2],
+//        peak_max[0],peak_max[1],peak_max[2]);
 
     /* we require two peaks at least */
     if (peak_idx[0] == 0 || peak_idx[1] == 0)
@@ -231,9 +231,9 @@ bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FIL
     if (peak_idx[2] != 0) {
         unsigned long dist2 = peak_idx[2] - peak_idx[1];
 
-        printf("autoscan: dist=%lu dist2=%lu\n",fb.dist,dist2);
+//        printf("autoscan: dist=%lu dist2=%lu\n",fb.dist,dist2);
         if (labs((signed long)dist2 - (signed long)fb.dist) < (fb.dist / 4ul)) {
-            printf("autoscan: using peaks 1-2 to average dist (diff=%ld)\n",(signed long)dist2 - (signed long)fb.dist);
+//            printf("autoscan: using peaks 1-2 to average dist (diff=%ld)\n",(signed long)dist2 - (signed long)fb.dist);
             fb.dist = (fb.dist + dist2) / 2ul;
         }
     }
@@ -246,7 +246,7 @@ bool autodetect_flux_bits_mfm(struct flux_bits &fb,struct kryoflux_event &ev,FIL
      * subtract dist from it */
     fb.shortest -= fb.dist;
 
-    printf("autoscan: final params shortest=%lu dist=%lu\n",fb.shortest,fb.dist);
+//    printf("autoscan: final params shortest=%lu dist=%lu\n",fb.shortest,fb.dist);
     return true;
 }
 
