@@ -40,7 +40,7 @@ std::vector<bool>       captured;
 
 // at call:
 // fb.peek() == A1 sync
-void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp) {
+void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FILE *fp,unsigned int log_track,unsigned int log_head) {
     unsigned char tmp[128];
     mfm_crc16fd_t check;
     unsigned int count;
@@ -70,6 +70,8 @@ void process_sync(FILE *dsk_fp,struct flux_bits &fb,struct kryoflux_event &ev,FI
     if (flux_bits_mfm_read_sector_id(sid,fb,ev,fp) < 0) return;
 
     if (sid.sector_size() != sector_size)
+        return;
+    if (sid.track != log_track || sid.side != log_head)
         return;
 
     if (sid.sector < 1 || sid.sector > sectors ||
@@ -220,7 +222,7 @@ int main(int argc,char **argv) {
                         fb.clear();
 
                         while (mfm_find_sync(fb,ev,fp))
-                            process_sync(dsk_fp,fb,ev,fp);
+                            process_sync(dsk_fp,fb,ev,fp,track,head);
                     }
                 }
 
