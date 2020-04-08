@@ -26,7 +26,7 @@ int main(int argc,char **argv) {
     unsigned long count = 0;
 
     fprintf(csv_fp,"# index, flux\n");
-    while (kryoflux_read(ev,fp) && count < 100000ul) {
+    while (kryoflux_read(ev,fp)) {
         if (ev.message == MSG_FLUX) {
             fprintf(csv_fp,"%lu, %lu\n",count,ev.flux_interval);
             count++;
@@ -37,7 +37,7 @@ int main(int argc,char **argv) {
     if (graph_fp == NULL) return 1;
 
     fprintf(graph_fp,"reset\n");
-    fprintf(graph_fp,"set term png size %lu,256\n",count/10ul);
+    fprintf(graph_fp,"set term png size 1024,256\n");
     fprintf(graph_fp,"set output 'graph.png'\n");
     fprintf(graph_fp,"set grid\n");
     fprintf(graph_fp,"set autoscale\n");
