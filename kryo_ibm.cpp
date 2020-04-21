@@ -419,86 +419,105 @@ int main(int argc,char **argv) {
 
     captured.resize(heads * sectors * tracks);
 
-    for (size_t capidx=0;capidx < cappaths.size();capidx++) {
-        for (unsigned int track=0;track < tracks;track++) {
-            for (unsigned int head=0;head < heads;head++) {
-                printf("Track %u head %u\n",track,head);
+    for (size_t pass=0;pass < 3;pass++) {
+	    for (size_t capidx=0;capidx < cappaths.size();capidx++) {
+		    for (unsigned int track=0;track < tracks;track++) {
+			    for (unsigned int head=0;head < heads;head++) {
+				    printf("Track %u head %u\n",track,head);
 
-                FILE *fp = kryo_fopen(cappaths[capidx],track*double_track,head);
-                if (fp == NULL) {
-                    printf("Failed to open\n");
-                    continue;
-                }
+				    FILE *fp = kryo_fopen(cappaths[capidx],track*double_track,head);
+				    if (fp == NULL) {
+					    printf("Failed to open\n");
+					    continue;
+				    }
 
-                if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
-                    fprintf(stderr,"Autodetect failure\n");
-                    fclose(fp);
-                    continue;
-                }
+				    if (!autodetect_flux_bits_mfm(fb,ev,fp)) {
+					    fprintf(stderr,"Autodetect failure\n");
+					    fclose(fp);
+					    continue;
+				    }
 
-                flux_bits ofb = fb;
-                unsigned int capcount = 0;
+				    flux_bits ofb = fb;
+				    unsigned int capcount = 0;
 
-                int adj_span = 8;
-                int dadj_span = 8;
+				    int adj_span;
+				    int dadj_span;
 
-                for (int adj_c = 0;adj_c <= (adj_span*2);adj_c++) {
-                    for (int dadj_c = 0;dadj_c <= (dadj_span*2);dadj_c++) {
-                        unsigned int capcount = 0;
+				    switch (pass) {
+					    case 0:
+						    adj_span = 0;
+						    dadj_span = 0;
+						    break;
+					    case 1:
+						    adj_span = 2;
+						    dadj_span = 2;
+						    break;
+					    case 2:
+						    adj_span = 8;
+						    dadj_span = 8;
+						    break;
+					    default:
+						    abort();
+				    }
 
-                        int adj = adj_c;
-                        int dadj = dadj_c;
+				    for (int adj_c = 0;adj_c <= (adj_span*2);adj_c++) {
+					    for (int dadj_c = 0;dadj_c <= (dadj_span*2);dadj_c++) {
+						    unsigned int capcount = 0;
 
-                        if (adj >= (adj_span+1)) adj -= adj_span*2;
-                        if (dadj >= (dadj_span+1)) dadj -= dadj_span*2;
+						    int adj = adj_c;
+						    int dadj = dadj_c;
 
-                        if ((int)ofb.shortest+(int)adj <= 0)
-                            continue;
-                        fb.shortest = ofb.shortest + adj;
+						    if (adj >= (adj_span+1)) adj -= adj_span*2;
+						    if (dadj >= (dadj_span+1)) dadj -= dadj_span*2;
 
-                        if ((int)ofb.dist+(int)dadj <= 0)
-                            continue;
-                        fb.dist = ofb.dist + dadj;
+						    if ((int)ofb.shortest+(int)adj <= 0)
+							    continue;
+						    fb.shortest = ofb.shortest + adj;
 
-                        unsigned long snum = ((track * heads) + head) * sectors;
+						    if ((int)ofb.dist+(int)dadj <= 0)
+							    continue;
+						    fb.dist = ofb.dist + dadj;
 
-                        for (size_t i=0;i < sectors;i++)
-                            capcount += captured[i+snum];
+						    unsigned long snum = ((track * heads) + head) * sectors;
 
-                        if (capcount >= sectors)
-                            break;
+						    for (size_t i=0;i < sectors;i++)
+							    capcount += captured[i+snum];
 
-                        fseek(fp,0,SEEK_SET);
-                        fb.clear();
+						    if (capcount >= sectors)
+							    break;
 
-                        while (mfm_find_sync(fb,ev,fp))
-                            process_sync(dsk_fp,fb,ev,fp,track,head);
-                    }
-                }
+						    fseek(fp,0,SEEK_SET);
+						    fb.clear();
 
-                {
-                    unsigned long snum = ((track * heads) + head) * sectors;
-                    printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
-                    for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
-                    printf("\n");
-                }
+						    while (mfm_find_sync(fb,ev,fp))
+							    process_sync(dsk_fp,fb,ev,fp,track,head);
+					    }
+				    }
 
-                {
-                    unsigned int capcount = 0;
-                    {
-                        unsigned long snum = ((track * heads) + head) * sectors;
-                        for (size_t i=0;i < sectors;i++)
-                            capcount += captured[i+snum];
-                    }
+				    {
+					    unsigned long snum = ((track * heads) + head) * sectors;
+					    printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
+					    for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
+					    printf("\n");
+				    }
 
-                    if (capcount < sectors) {
-                        printf("Track %u head %u not captured fully (%u < %u)\n",track,head,capcount,sectors);
-                    }
-                }
+				    {
+					    unsigned int capcount = 0;
+					    {
+						    unsigned long snum = ((track * heads) + head) * sectors;
+						    for (size_t i=0;i < sectors;i++)
+							    capcount += captured[i+snum];
+					    }
 
-                fclose(fp);
-            }
-        }
+					    if (capcount < sectors) {
+						    printf("Track %u head %u not captured fully (%u < %u)\n",track,head,capcount,sectors);
+					    }
+				    }
+
+				    fclose(fp);
+			    }
+		    }
+	    }
     }
 
     {
