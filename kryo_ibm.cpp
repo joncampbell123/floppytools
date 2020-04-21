@@ -371,9 +371,15 @@ int main(int argc,char **argv) {
 
             for (unsigned int track=0;track < (84/double_track);track++) {
                 unsigned long sectcount = 0;
-                unsigned long sectmin = (sectors / 4) * heads; /* in case of damaged or lost sectors */
+                unsigned long hsectmin = 4;
+                unsigned long sectmin = hsectmin * heads; /* in case of damaged or lost sectors */
 
                 for (unsigned int head=0;head < heads;head++) {
+                    unsigned long hsectcount = 0;
+
+		    printf("\x0D" "t=%u h=%u ",track,head);
+		    fflush(stdout);
+
                     FILE *fp = kryo_fopen(cappaths[capidx],track*double_track/*track*/,head/*head*/);
                     if (fp == NULL)
                         continue;
@@ -398,10 +404,15 @@ int main(int argc,char **argv) {
                         if (sid.track != track || sid.side != head || sid.sector_size() != sector_size || sid.sector > sectors) continue;
 
                         sectcount++;
+                        hsectcount++;
+                        if (hsectcount >= hsectmin) break;
                     }
 
                     fclose(fp);
                 }
+
+		printf("\x0D            \x0D");
+		fflush(stdout);
 
                 if (sectcount >= sectmin) {
                     if (tracks <= track)
