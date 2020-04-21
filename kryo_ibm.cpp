@@ -453,8 +453,8 @@ int main(int argc,char **argv) {
 						    dadj_span = 2;
 						    break;
 					    case 2:
-						    adj_span = 8;
-						    dadj_span = 8;
+						    adj_span = 4;
+						    dadj_span = 4;
 						    break;
 					    default:
 						    abort();
