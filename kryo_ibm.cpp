@@ -506,19 +506,17 @@ int main(int argc,char **argv) {
 				    }
 
 				    {
-					    unsigned long snum = ((track * heads) + head) * sectors;
-					    printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
-					    for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
-					    printf("\n");
-				    }
-
-				    {
 					    unsigned int capcount = 0;
 					    {
 						    unsigned long snum = ((track * heads) + head) * sectors;
 						    for (size_t i=0;i < sectors;i++)
 							    capcount += captured[i+snum];
 					    }
+
+					    unsigned long snum = ((track * heads) + head) * sectors;
+					    printf("Track %u head %u capture progress: %u/%u ",track,head,capcount,sectors);
+					    for (size_t i=0;i < sectors;i++) printf("%u",captured[i+snum]?1:0);
+					    printf("\n");
 
 					    if (capcount < sectors) {
 						    printf("Track %u head %u not captured fully (%u < %u)\n",track,head,capcount,sectors);
