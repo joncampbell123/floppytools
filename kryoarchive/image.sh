@@ -14,6 +14,6 @@ dtc -r3 -g2 '-ftrack' -i0 || exit 1
 
 cd "$curdir" || exit 1
 
-#idx=$(($idx+1))
-#echo -n "$idx" >index
+idx=$(($idx+1))
+echo -n "$idx" >index
 
