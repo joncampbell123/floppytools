@@ -7,10 +7,18 @@ nn=`printf "%04d" "$idx"`
 name="$nn-$name.kryoflux"
 
 curdir=`pwd`
-mkdir -p "$name" || exit 1
-cd "$name" || exit 1
 
-dtc -r3 -g2 '-ftrack' -i0 || exit 1
+echo "About to read disk"
+sleep 3
+
+for i in 1 2 3; do
+	mkdir -p "$curdir/$name/$i" || exit 1
+	cd "$curdir/$name/$i" || exit 1
+	dtc -r3 -g2 '-ftrack' -i0 || exit 1
+
+	echo "Pause"
+	sleep 3
+done
 
 cd "$curdir" || exit 1
 
