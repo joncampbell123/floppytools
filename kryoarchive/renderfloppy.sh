@@ -10,7 +10,7 @@ for k in *.kryoflux; do
 			fi
 		done
 		echo "Reading $list in $k in `pwd`"
-		"$top/../kryo_ibm" $list || exit 1
+		"$top/../kryo_ibm" $list
 	fi
 done
 
