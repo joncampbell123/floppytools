@@ -319,7 +319,7 @@ int main(int argc,char **argv) {
     /* number of heads. look at side 2 (head == 1) and make sure the format matches. */
     for (size_t capidx=0;capidx < cappaths.size();capidx++) {
         if (sectors != 0 && sector_size != 0 && double_track != 0 && heads == 0) {
-            unsigned int sectors2 = 0;
+            unsigned int sectors2 = 0,found = 0;
 
             printf("Auto-detecting heads...\n");
 
@@ -355,12 +355,15 @@ int main(int argc,char **argv) {
                 }
 
                 fclose(fp);
+                found = 1;
             }
 
-            if (sectors2 == sectors)
-                heads = 2;
-            else
-                heads = 1;
+            if (found) {
+                if (sectors2 == sectors)
+                    heads = 2;
+                else
+                    heads = 1;
+            }
         }
     }
 
