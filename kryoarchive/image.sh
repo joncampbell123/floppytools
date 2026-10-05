@@ -11,10 +11,10 @@ curdir=`pwd`
 echo "About to read disk"
 sleep 3
 
-for i in 1 2 3; do
+for i in 1 2; do
 	mkdir -p "$curdir/$name/$i" || exit 1
 	cd "$curdir/$name/$i" || exit 1
-	dtc -r3 -g2 '-ftrack' -i0 || exit 1
+	dtc -r5 -g2 '-ftrack' -i0 || exit 1
 
 	echo "Pause"
 	sleep 3
