@@ -1,15 +1,15 @@
 
-BINS=kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryofluxplot kryo_ibm
+BINS=kryo_amiga kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryofluxplot kryo_ibm
 
 all: $(BINS)
 
 clean:
 	rm -f $(BINS) *.o graph.csv graph.gnuplot graph.png disk.img
 
-kryo_ibm: kryo_ibm.o kryocomm.o
-	g++ -o $@ kryo_ibm.o kryocomm.o
+kryo_ibm: kryo_ibm.o kryomfm.o kryocomm.o
+	g++ -o $@ kryo_ibm.o kryomfm.o kryocomm.o
 
-kryo_ibm.o: kryo_ibm.cpp
+kryo_ibm.o: kryo_ibm.cpp kryomfm.h
 	g++ -std=gnu++0x -c -o $@ $<
 
 
@@ -68,6 +68,15 @@ kryofluxplot: kryofluxplot.o kryocomm.o
 kryofluxplot.o: kryofluxplot.cpp
 	g++ -std=gnu++0x -c -o $@ $<
 
+
+kryo_amiga: kryo_amiga.o kryomfm.o kryocomm.o
+	g++ -o $@ kryo_amiga.o kryomfm.o kryocomm.o
+
+kryo_amiga.o: kryo_amiga.cpp kryomfm.h
+	g++ -std=gnu++0x -c -o $@ $<
+
+kryomfm.o: kryomfm.cpp kryomfm.h
+	g++ -std=gnu++0x -c -o $@ $<
 
 kryocomm.o: kryocomm.cpp
 	g++ -std=gnu++0x -c -o $@ $<
