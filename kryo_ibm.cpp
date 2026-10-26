@@ -60,7 +60,7 @@ int                     side_id[2] = {-1,-1};   /* side number recorded in secto
 unsigned int            sector_size_code = 0;
 
 std::string             output_path = "disk.img";
-unsigned int            guess_budget = 256;     /* max CRC trial corrections per bad sector, 0 to disable */
+unsigned int            guess_budget = 64;      /* max CRC trial corrections per bad sector, 0 to disable */
 bool                    bad_zero = false;       /* write zeros instead of best guess data for unrecovered sectors */
 bool                    verbose = false;
 
@@ -130,7 +130,14 @@ static double estimate_cell_period(const std::vector<uint32_t> &flux) {
         cell = num / den;
     }
 
-    /* most intervals must fit MFM, else this is not an MFM track (unformatted, FM, etc.) */
+    /* most intervals must fit MFM closely, else this is not an MFM track (unformatted, noise, FM, etc.) */
+    fit = 0;
+    for (unsigned int b=1;b < maxbin;b++) {
+        const double k = floor(((double)b / cell) + 0.5);
+        if (k >= 2 && k <= 4 && fabs((double)b - (k * cell)) <= (cell / 4.0))
+            fit += hist[b];
+    }
+
     if (fit < (total / 2ul))
         return 0;
 
@@ -327,15 +334,24 @@ static uint8_t decode_byte(const std::vector<uint8_t> &cells,size_t pos) {
     return (uint8_t)v;
 }
 
-/* confidence assigned to data bits next to an MFM clock rule violation (out of 63) */
-static const unsigned int violation_conf = 30;
+/* Data bits near an MFM clock rule violation get little confidence, rising with the distance from
+ * it (violation_floor + violation_slope * distance, out of 63) out to violation_radius bits. A violation means a
+ * missing or extra transition, or that the PLL lost the clock/data alignment, and the bits around
+ * it are unreliable. With little confidence there, the bits of other reads that decoded that
+ * area cleanly decide the vote. The floor is kept above the confidence of a transition that is
+ * truly ambiguous in timing so that CRC trial correction tries those bits first. */
+static const unsigned int violation_floor = 12;
+static const unsigned int violation_radius = 24;
+static const unsigned int violation_slope = 2;
 
 /* Decode nbytes starting at cell pos (the clock cell of the first bit).
  * Fills out[] with the bytes and soft[] (one per bit, MSB first) with the soft decision:
- * sign is the bit value, magnitude 0..126 is the confidence. */
-static void decode_soft(const std::vector<uint8_t> &cells,size_t pos,size_t nbytes,uint8_t *out,int8_t *soft) {
+ * sign is the bit value, magnitude 0..126 is the confidence. tsoft[] is the same but from the
+ * flux timing alone, without the clock rule violations, which points more precisely at the
+ * bits that were misread. */
+static void decode_soft(const std::vector<uint8_t> &cells,size_t pos,size_t nbytes,uint8_t *out,int8_t *soft,int8_t *tsoft) {
     const size_t nbits = nbytes * 8u;
-    std::vector<unsigned int> conf(nbits);
+    std::vector<unsigned int> conf(nbits),tconf;
 
     for (size_t k=0;k < nbits;k++) {
         const size_t d = pos + (k * 2u) + 1u;
@@ -354,15 +370,21 @@ static void decode_soft(const std::vector<uint8_t> &cells,size_t pos,size_t nbyt
         conf[k] = c;
     }
 
+    tconf = conf;
+
     /* MFM clock rule: the clock cell is 1 only if the data bits on either side are both 0.
-     * A violation usually means a missing or extra transition next to it. */
+     * The violation is between bits k-1 and k. */
     for (size_t k=0;k < nbits;k++) {
         const size_t d = pos + (k * 2u) + 1u;
         const bool expect = !cell_bit(cells,d-2) && !cell_bit(cells,d);
 
         if (cell_bit(cells,d-1) != expect) {
-            conf[k] = std::min(conf[k],violation_conf);
-            if (k > 0) conf[k-1] = std::min(conf[k-1],violation_conf);
+            for (size_t dist=0;dist < violation_radius;dist++) {
+                const unsigned int c = violation_floor + (violation_slope * (unsigned int)dist);
+
+                if ((k + dist) < nbits) conf[k + dist] = std::min(conf[k + dist],c);
+                if (k >= (dist + 1u)) conf[k - 1u - dist] = std::min(conf[k - 1u - dist],c);
+            }
         }
     }
 
@@ -375,6 +397,7 @@ static void decode_soft(const std::vector<uint8_t> &cells,size_t pos,size_t nbyt
 
             v = (v << 1u) | (bit ? 1u : 0u);
             soft[k] = (int8_t)(bit ? (int)(conf[k] * 2u) : -(int)(conf[k] * 2u));
+            tsoft[k] = (int8_t)(bit ? (int)(tconf[k] * 2u) : -(int)(tconf[k] * 2u));
         }
 
         out[i] = (uint8_t)v;
@@ -421,10 +444,14 @@ struct flip_trial {
 /* Try to fix a bad CRC by flipping the least certain bits. Combinations are tried in order of
  * increasing total confidence, at most 'budget' of them. Every trial carries a ~1/65536 chance
  * of a false match, which is why the budget is limited and the result is reported as a guess.
- * soft[] is per bit, |soft| is the confidence. Only bits with |soft| < threshold are candidates.
- * On success buf[] is corrected and the number of flipped bits returned, else 0. */
-static unsigned int crc_guess(uint16_t residual,uint8_t *buf,const std::vector<int> &soft,size_t nbytes,unsigned int budget,int threshold) {
-    static const unsigned int max_candidates = 24;
+ * soft[] and tsoft[] are per bit, the magnitude is the confidence (all and timing only). Only bits
+ * with |soft| < threshold are candidates, ranked by |soft| + |tsoft| so that bits with ambiguous
+ * timing come before the bits that are merely near a clock violation.
+ * On success buf[] is corrected and the number of flipped bits returned, else 0. The number of
+ * trials made is returned in *trials_used if not NULL (the chance of a false match is about
+ * trials / 65536). */
+static unsigned int crc_guess(uint16_t residual,uint8_t *buf,const std::vector<int> &soft,const std::vector<int> &tsoft,size_t nbytes,unsigned int budget,int threshold,unsigned int *trials_used=NULL) {
+    static const unsigned int max_candidates = 32;
     const size_t nbits = nbytes * 8u;
     std::vector<flip_candidate> cand;
 
@@ -438,7 +465,7 @@ static unsigned int crc_guess(uint16_t residual,uint8_t *buf,const std::vector<i
         if (c < threshold) {
             flip_candidate fc;
             fc.bit = (unsigned int)b;
-            fc.cost = c + 1;
+            fc.cost = c + abs(tsoft[b]) + 1;
             cand.push_back(fc);
         }
     }
@@ -466,6 +493,7 @@ static unsigned int crc_guess(uint16_t residual,uint8_t *buf,const std::vector<i
         const flip_trial t = heap.top();
         heap.pop();
         trials++;
+        if (trials_used != NULL) *trials_used = trials;
 
         uint16_t r = residual;
         for (unsigned int i=0;i <= t.last;i++) {
@@ -506,6 +534,15 @@ static unsigned int crc_guess(uint16_t residual,uint8_t *buf,const std::vector<i
 /*-----------------------------------------------------------------------------------------------*/
 /* track scanning */
 
+/* Bit slip realignment. A damaged spot can make the PLL gain or lose cells, after which the rest
+ * of the read is shifted. Shifts by an odd number of cells swap clock and data and show up as
+ * clock violations, but shifts by an even number (whole bits) decode cleanly to wrong data.
+ * Bad reads are realigned against the consensus of all reads with a per byte cell offset. */
+static const int    align_max = 24;         /* max offset from the sync aligned position, in cells */
+static const int    align_step = 4;         /* max change of offset from one byte to the next */
+static const int    align_change_cost = 24; /* cost of changing the offset, in mismatching bits */
+static const size_t align_pad = 48;         /* cells kept before and after the data field */
+
 struct mark_pos {
     size_t          pos;        /* cell index of the first cell following the mark byte */
     uint8_t         mark;       /* 0xFE (ID) or 0xF8-0xFB (data) */
@@ -520,6 +557,8 @@ struct sector_read {
     uint8_t                 mark;               /* data address mark, 0xFB normal 0xF8 deleted */
     std::vector<uint8_t>    data;               /* sector data followed by 2 CRC bytes */
     std::vector<int8_t>     soft;               /* soft decision per bit of data[] */
+    std::vector<int8_t>     tsoft;              /* soft decision from flux timing only */
+    std::vector<uint8_t>    raw;                /* cells around the data field for realignment (bad CRC only) */
 
     sector_read() : cyl(0), side(0), sector(0), size_code(0), id_crc_ok(false), id_corrected(false), has_data(false), data_crc_ok(false), mark(0) { }
 };
@@ -553,8 +592,10 @@ static void find_marks(const std::vector<uint8_t> &cells,std::vector<mark_pos> &
 }
 
 /* distance in bytes from the end of the ID field to the start of sector data within which
- * the data mark must appear (IBM format is normally 22 + 12 + 4 = 38) */
-static const size_t max_id_to_data_bytes = 64;
+ * the data mark must appear. IBM format is normally 22 + 12 + 4 = 38, but sectors rewritten by
+ * another drive can have it much later (74 bytes has been seen). The search also stops at the
+ * next ID mark. */
+static const size_t max_id_to_data_bytes = 128;
 
 static void scan_track(const std::vector<uint8_t> &cells,std::vector<sector_read> &reads,bool ids_only) {
     std::vector<mark_pos> marks;
@@ -569,9 +610,9 @@ static void scan_track(const std::vector<uint8_t> &cells,std::vector<sector_read
 
         sector_read r;
         uint8_t idb[6];
-        int8_t idsoft[6*8];
+        int8_t idsoft[6*8],idtsoft[6*8];
 
-        decode_soft(cells,idp,6,idb,idsoft);
+        decode_soft(cells,idp,6,idb,idsoft,idtsoft);
 
         uint16_t res = crc_residual(0xFE,idb,6);
         if (res == 0) {
@@ -579,8 +620,8 @@ static void scan_track(const std::vector<uint8_t> &cells,std::vector<sector_read
         }
         else {
             /* try a very small number of trial corrections on the ID field */
-            std::vector<int> s(idsoft,idsoft+(6*8));
-            if (crc_guess(res,idb,s,6,16,80) != 0) {
+            std::vector<int> s(idsoft,idsoft+(6*8)),ts(idtsoft,idtsoft+(6*8));
+            if (crc_guess(res,idb,s,ts,6,16,80) != 0) {
                 r.id_crc_ok = true;
                 r.id_corrected = true;
             }
@@ -606,8 +647,13 @@ static void scan_track(const std::vector<uint8_t> &cells,std::vector<sector_read
                 r.mark = marks[mj].mark;
                 r.data.resize(ssz + 2u);
                 r.soft.resize((ssz + 2u) * 8u);
-                decode_soft(cells,dp,ssz + 2u,&r.data[0],&r.soft[0]);
+                r.tsoft.resize((ssz + 2u) * 8u);
+                decode_soft(cells,dp,ssz + 2u,&r.data[0],&r.soft[0],&r.tsoft[0]);
                 r.data_crc_ok = (crc_residual(r.mark,&r.data[0],r.data.size()) == 0);
+
+                /* keep the cells of a bad read so that it can be realigned after a bit slip */
+                if (!r.data_crc_ok && dp >= align_pad && (dp + ((ssz + 2u) * 16u) + align_pad) <= cells.size())
+                    r.raw.assign(cells.begin()+(dp-align_pad),cells.begin()+(dp+((ssz+2u)*16u)+align_pad));
                 break;
             }
         }
@@ -657,20 +703,179 @@ struct sector_result {
     int                     status;
     unsigned int            reads;
     unsigned int            flips;
+    unsigned int            trials;         /* CRC trial corrections made (SEC_GUESSED) */
     bool                    deleted;
     bool                    inconsistent;   /* multiple good reads with different contents (weak bits?) */
     std::vector<uint8_t>    data;
 
-    sector_result() : status(SEC_MISSING), reads(0), flips(0), deleted(false), inconsistent(false) { }
+    sector_result() : status(SEC_MISSING), reads(0), flips(0), trials(0), deleted(false), inconsistent(false) { }
 };
 
 static unsigned int read_weight(const sector_read &r) {
     return r.id_crc_ok ? 2u : 1u;
 }
 
+/* soft value at or above which a bit is considered decoded cleanly (out of 126) */
+static const int confident_soft = 76;
+
+struct work_read {
+    const sector_read       *r;
+    std::vector<uint8_t>    data;
+    std::vector<int8_t>     soft,tsoft;
+    std::vector<int>        ofs;        /* cell offset per byte (realignment) */
+};
+
+/* Soft decision combining of reads. Damaged areas of a read carry little confidence so each
+ * area is decided by the reads that decoded it cleanly. Reads whose confident bits disagree a
+ * lot (wrong sector, unfixed slip) are dropped as long as enough remain. */
+static void vote_reads(const std::vector<work_read> &wr,size_t nbytes,std::vector<int> &sum,std::vector<int> &tsum,std::vector<uint8_t> &buf,std::vector<bool> &use,int &total_w,uint8_t &mark) {
+    const size_t nbits = nbytes * 8u;
+    unsigned int used = (unsigned int)wr.size();
+
+    use.assign(wr.size(),true);
+    sum.resize(nbits);
+    tsum.resize(nbits);
+    buf.resize(nbytes);
+
+    for (unsigned int iter=0;iter < 2;iter++) {
+        std::fill(sum.begin(),sum.end(),0);
+        std::fill(tsum.begin(),tsum.end(),0);
+        total_w = 0;
+
+        for (size_t i=0;i < wr.size();i++) {
+            if (!use[i]) continue;
+            const int w = (int)read_weight(*wr[i].r);
+            for (size_t b=0;b < nbits;b++) {
+                sum[b] += w * (int)wr[i].soft[b];
+                tsum[b] += w * (int)wr[i].tsoft[b];
+            }
+            total_w += w;
+        }
+
+        for (size_t i=0;i < nbytes;i++) {
+            unsigned int v = 0;
+            for (unsigned int b=0;b < 8;b++) {
+                const size_t k = (i * 8u) + b;
+                /* tie: go with the first read */
+                bool bit = sum[k] > 0 || (sum[k] == 0 && (wr[0].data[i] & (0x80u >> b)));
+                v = (v << 1u) | (bit ? 1u : 0u);
+            }
+            buf[i] = (uint8_t)v;
+        }
+
+        if (iter != 0 || used <= 2)
+            break;
+
+        for (size_t i=0;i < wr.size() && used > 2;i++) {
+            size_t diff = 0,confident = 0;
+            for (size_t k=0;k < nbits;k++) {
+                if (abs(wr[i].soft[k]) < confident_soft) continue;
+                confident++;
+                if (((buf[k >> 3u] ^ wr[i].data[k >> 3u]) & (0x80u >> (k & 7u))) != 0) diff++;
+            }
+            if ((diff * 20u) > confident) {
+                use[i] = false;
+                used--;
+            }
+        }
+    }
+
+    /* data mark by weighted majority */
+    {
+        unsigned int mw[4] = {0,0,0,0};
+        unsigned int best = 0;
+
+        mark = 0xFB;
+        for (size_t i=0;i < wr.size();i++) {
+            if (use[i]) mw[wr[i].r->mark & 3u] += read_weight(*wr[i].r);
+        }
+        for (unsigned int i=0;i < 4;i++) {
+            if (best < mw[i]) {
+                best = mw[i];
+                mark = (uint8_t)(0xF8 + i);
+            }
+        }
+    }
+}
+
+/* Find the cell offset per byte of a read that best matches the consensus (Viterbi).
+ * The cost of a byte is the mismatching bits weighted by the confidence of the consensus, plus
+ * the clock violations (which catch clock/data swapped offsets). Changing offset costs extra. */
+static void align_read(const sector_read &r,const std::vector<int> &sum,int total_w,size_t nbytes,std::vector<int> &ofs) {
+    const int nstates = (align_max * 2) + 1;
+    const int full = std::max(1,total_w * 126);
+    std::vector<int> cost(nstates),ncost(nstates);
+    std::vector<int8_t> back(nbytes * (size_t)nstates);
+
+    for (int s=0;s < nstates;s++)
+        cost[s] = (s == align_max) ? 0 : align_change_cost;
+
+    for (size_t b=0;b < nbytes;b++) {
+        for (int s=0;s < nstates;s++) {
+            int best = -1,bestc = 0;
+
+            for (int p=std::max(0,s-align_step);p <= std::min(nstates-1,s+align_step);p++) {
+                const int c = cost[p] + ((p != s) ? align_change_cost : 0);
+                if (best < 0 || c < bestc) {
+                    best = p;
+                    bestc = c;
+                }
+            }
+
+            const size_t src = align_pad + (b * 16u) + (size_t)(s - align_max);
+            int lc = 0;
+
+            for (unsigned int k=0;k < 8;k++) {
+                const size_t d = src + (k * 2u) + 1u;
+                const int sv = sum[(b * 8u) + k];
+                const bool bit = cell_bit(r.raw,d);
+                const bool expect = !cell_bit(r.raw,d-2) && !bit;
+
+                if (bit != (sv > 0)) lc += 1 + ((8 * abs(sv)) / full);
+                if (cell_bit(r.raw,d-1) != expect) lc += 4;
+            }
+
+            ncost[s] = bestc + lc;
+            back[(b * (size_t)nstates) + (size_t)s] = (int8_t)best;
+        }
+
+        cost.swap(ncost);
+    }
+
+    int s = 0;
+    for (int i=1;i < nstates;i++) {
+        if (cost[i] < cost[s]) s = i;
+    }
+
+    ofs.resize(nbytes);
+    for (size_t b=nbytes;b-- > 0;) {
+        ofs[b] = s - align_max;
+        s = back[(b * (size_t)nstates) + (size_t)s];
+    }
+}
+
+/* decode a read using a cell offset per byte */
+static void decode_aligned(const sector_read &r,const std::vector<int> &ofs,size_t nbytes,std::vector<uint8_t> &data,std::vector<int8_t> &soft,std::vector<int8_t> &tsoft) {
+    std::vector<uint8_t> cells;
+    size_t src = (size_t)((int)align_pad + ofs[0]) - 16u;
+
+    /* previous byte (context for the clock rule), the bytes, then one more cell */
+    cells.reserve((nbytes + 1u) * 16u + 1u);
+    cells.insert(cells.end(),r.raw.begin()+src,r.raw.begin()+src+16u);
+    for (size_t b=0;b < nbytes;b++) {
+        src = (size_t)((int)align_pad + ofs[b]) + (b * 16u);
+        cells.insert(cells.end(),r.raw.begin()+src,r.raw.begin()+src+16u);
+    }
+    cells.push_back(r.raw[src+16u]);
+
+    data.resize(nbytes);
+    soft.resize(nbytes * 8u);
+    tsoft.resize(nbytes * 8u);
+    decode_soft(cells,16,nbytes,&data[0],&soft[0],&tsoft[0]);
+}
+
 static void resolve_sector(sector_result &res,const std::vector<const sector_read*> &reads,size_t ssz) {
     const size_t nbytes = ssz + 2u;
-    const size_t nbits = nbytes * 8u;
 
     res = sector_result();
     res.reads = (unsigned int)reads.size();
@@ -704,63 +909,45 @@ static void resolve_sector(sector_result &res,const std::vector<const sector_rea
         }
     }
 
-    /* soft decision combining of all reads, dropping reads that disagree a lot
-     * (bit slip, wrong sector) as long as enough remain */
-    std::vector<bool> use(reads.size(),true);
-    std::vector<int> sum(nbits);
-    std::vector<uint8_t> buf(nbytes);
-    unsigned int used = (unsigned int)reads.size();
+    /* soft decision combining of all reads, then realign the bad reads against the result
+     * to undo bit slips and combine again */
+    std::vector<work_read> wr(reads.size());
+    std::vector<bool> use;
+    std::vector<int> sum,tsum;
+    std::vector<uint8_t> buf;
     int total_w = 0;
+    uint8_t mark = 0xFB;
 
-    for (unsigned int iter=0;iter < 2;iter++) {
-        std::fill(sum.begin(),sum.end(),0);
-        total_w = 0;
-
-        for (size_t i=0;i < reads.size();i++) {
-            if (!use[i]) continue;
-            const int w = (int)read_weight(*reads[i]);
-            for (size_t b=0;b < nbits;b++) sum[b] += w * (int)reads[i]->soft[b];
-            total_w += w;
-        }
-
-        for (size_t i=0;i < nbytes;i++) {
-            unsigned int v = 0;
-            for (unsigned int b=0;b < 8;b++) {
-                const size_t k = (i * 8u) + b;
-                /* tie: go with the first read */
-                bool bit = sum[k] > 0 || (sum[k] == 0 && (reads[0]->data[i] & (0x80u >> b)));
-                v = (v << 1u) | (bit ? 1u : 0u);
-            }
-            buf[i] = (uint8_t)v;
-        }
-
-        if (iter != 0 || used <= 2)
-            break;
-
-        for (size_t i=0;i < reads.size() && used > 2;i++) {
-            size_t diff = 0;
-            for (size_t b=0;b < nbytes;b++) diff += (size_t)__builtin_popcount(buf[b] ^ reads[i]->data[b]);
-            if ((diff * 20u) > nbits) {
-                use[i] = false;
-                used--;
-            }
-        }
+    for (size_t i=0;i < reads.size();i++) {
+        wr[i].r = reads[i];
+        wr[i].data = reads[i]->data;
+        wr[i].soft = reads[i]->soft;
+        wr[i].tsoft = reads[i]->tsoft;
+        wr[i].ofs.assign(nbytes,0);
     }
 
-    /* data mark by weighted majority */
-    uint8_t mark = 0xFB;
-    {
-        unsigned int mw[4] = {0,0,0,0};
-        unsigned int best = 0;
-        for (size_t i=0;i < reads.size();i++) {
-            if (use[i]) mw[reads[i]->mark & 3u] += read_weight(*reads[i]);
-        }
-        for (unsigned int i=0;i < 4;i++) {
-            if (best < mw[i]) {
-                best = mw[i];
-                mark = (uint8_t)(0xF8 + i);
+    vote_reads(wr,nbytes,sum,tsum,buf,use,total_w,mark);
+
+    for (unsigned int iter=0;iter < 3 && crc_residual(mark,&buf[0],nbytes) != 0;iter++) {
+        bool changed = false;
+
+        for (size_t i=0;i < wr.size();i++) {
+            std::vector<int> ofs;
+
+            if (wr[i].r->raw.empty()) continue;
+
+            align_read(*wr[i].r,sum,total_w,nbytes,ofs);
+            if (ofs != wr[i].ofs) {
+                wr[i].ofs = ofs;
+                decode_aligned(*wr[i].r,ofs,nbytes,wr[i].data,wr[i].soft,wr[i].tsoft);
+                changed = true;
             }
         }
+
+        if (!changed)
+            break;
+
+        vote_reads(wr,nbytes,sum,tsum,buf,use,total_w,mark);
     }
 
     res.deleted = (mark == 0xF8 || mark == 0xF9);
@@ -773,7 +960,7 @@ static void resolve_sector(sector_result &res,const std::vector<const sector_rea
         /* candidates: bits with combined confidence below 60% */
         const int threshold = (total_w * 126 * 6) / 10;
 
-        res.flips = crc_guess(residual,&buf[0],sum,nbytes,guess_budget,threshold);
+        res.flips = crc_guess(residual,&buf[0],sum,tsum,nbytes,guess_budget,threshold,&res.trials);
         res.status = (res.flips != 0) ? SEC_GUESSED : SEC_BAD;
     }
 
@@ -1045,16 +1232,21 @@ static bool detect_format(const std::vector<std::string> &cappaths) {
         }
     }
 
-    /* number of tracks: the last cylinder that has a reasonable number of sectors on any head */
+    /* number of tracks: the last cylinder that has a reasonable number of sectors on every head.
+     * Cylinders past that formatted on only some heads (e.g. the disk manufacturer's
+     * certification track on head 0 of cylinder 80) are left out, -tracks includes them. */
     if (tracks == 0) {
         const unsigned int need = std::min(4u,std::max(1u,sectors / 2u));
+        std::vector<unsigned int> partial;
 
         printf("Auto-detecting tracks...\n");
 
         for (unsigned int cyl=0;cyl < max_cyl;cyl++) {
-            bool ok = false;
+            unsigned int hok = 0;
 
-            for (unsigned int head=0;head < heads && !ok;head++) {
+            for (unsigned int head=0;head < heads;head++) {
+                bool ok = false;
+
                 printf("\x0D" "t=%u h=%u ",cyl,head);
                 fflush(stdout);
 
@@ -1065,13 +1257,22 @@ static bool detect_format(const std::vector<std::string> &cappaths) {
                     if (count_distinct_sectors(*ids,cyl,side_id[head]) >= need)
                         ok = true;
                 }
+
+                if (ok) hok++;
             }
 
-            if (ok) tracks = cyl + 1u;
+            if (hok == heads) tracks = cyl + 1u;
+            else if (hok != 0) partial.push_back(cyl);
         }
 
         printf("\x0D            \x0D");
         fflush(stdout);
+
+        for (size_t i=0;i < partial.size();i++) {
+            if (partial[i] >= tracks)
+                printf("Note: cylinder %u is formatted on only some heads, not included (use -tracks %u to include it)\n",
+                    partial[i],partial[i]+1u);
+        }
     }
 
     id_cache.clear();
@@ -1234,6 +1435,7 @@ int main(int argc,char **argv) {
     std::vector<uint8_t> image(total_sectors * (size_t)sector_size,0);
     std::vector<int> status(total_sectors,SEC_MISSING);
     std::vector<unsigned int> status_flips(total_sectors,0);
+    std::vector<unsigned int> status_trials(total_sectors,0);
     std::vector<bool> status_deleted(total_sectors,false);
     std::vector<bool> status_inconsistent(total_sectors,false);
 
@@ -1332,6 +1534,7 @@ int main(int argc,char **argv) {
 
                 status[sector_num] = res.status;
                 status_flips[sector_num] = res.flips;
+                status_trials[sector_num] = res.trials;
                 status_deleted[sector_num] = res.deleted;
                 status_inconsistent[sector_num] = res.inconsistent;
 
@@ -1391,7 +1594,8 @@ int main(int argc,char **argv) {
                     (unsigned int)((i / sectors) % heads),
                     (unsigned int)((i % sectors) + (size_t)sector_base),
                     sec_status_name[status[i]]);
-                if (status[i] == SEC_GUESSED) printf(" (%u bits flipped)",status_flips[i]);
+                if (status[i] == SEC_GUESSED)
+                    printf(" (%u bits flipped, trial %u, ~1 in %u chance of a false match)",status_flips[i],status_trials[i],65536u / std::max(1u,status_trials[i]));
                 if (status_deleted[i]) printf(" deleted-data-mark");
                 if (status_inconsistent[i]) printf(" good-reads-differ");
                 printf("\n");
