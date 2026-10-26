@@ -1,5 +1,5 @@
 
-BINS=kryo_amiga kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryofluxplot kryo_ibm
+BINS=kryo_amiga kryo_macgcr kryoflux1 kryoflux2 kryoflux3 kryoflux4 kryoflux5 kryoflux6 kryoflux7 kryofluxplot kryo_ibm
 
 all: $(BINS)
 
@@ -73,6 +73,12 @@ kryo_amiga: kryo_amiga.o kryomfm.o kryocomm.o
 	g++ -o $@ kryo_amiga.o kryomfm.o kryocomm.o
 
 kryo_amiga.o: kryo_amiga.cpp kryomfm.h
+	g++ -std=gnu++0x -c -o $@ $<
+
+kryo_macgcr: kryo_macgcr.o kryomfm.o kryocomm.o
+	g++ -o $@ kryo_macgcr.o kryomfm.o kryocomm.o
+
+kryo_macgcr.o: kryo_macgcr.cpp kryomfm.h
 	g++ -std=gnu++0x -c -o $@ $<
 
 kryomfm.o: kryomfm.cpp kryomfm.h

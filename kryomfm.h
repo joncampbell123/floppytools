@@ -21,7 +21,9 @@ struct flux_track {
     flux_track() : sck(0), cell(0) { }
 };
 
-double estimate_cell_period(const std::vector<uint32_t> &flux);
+/* Estimate the cell period from the histogram of flux intervals, which are kmin..kmax cells
+ * long (MFM 2..4, GCR 1..3). Returns 0 if the track does not look like that encoding. */
+double estimate_cell_period(const std::vector<uint32_t> &flux,unsigned int kmin=2,unsigned int kmax=4);
 bool load_flux_track(flux_track &ft,const std::string &cappath,unsigned int track,unsigned int head);
 bool track_file_exists(const std::string &cappath,unsigned int track,unsigned int head);
 

@@ -15,10 +15,10 @@
 /* flux loading */
 
 
-/* Estimate the MFM cell period from the histogram of flux intervals.
- * MFM intervals are 2, 3 or 4 cells. The first strong peak is 2 cells, the estimate is then
- * refined by fitting all intervals that are near 2, 3 or 4 cells. */
-double estimate_cell_period(const std::vector<uint32_t> &flux) {
+/* Estimate the cell period from the histogram of flux intervals, which are kmin..kmax cells
+ * long (MFM 2..4, GCR 1..3). The first strong peak is kmin cells, the estimate is then refined
+ * by fitting all intervals that are near kmin..kmax cells. */
+double estimate_cell_period(const std::vector<uint32_t> &flux,unsigned int kmin,unsigned int kmax) {
     static const unsigned int maxbin = 2048;
     std::vector<unsigned long> hist(maxbin,0),sm(maxbin,0);
     unsigned long total = 0,max = 0;
@@ -42,7 +42,7 @@ double estimate_cell_period(const std::vector<uint32_t> &flux) {
     while (i < maxbin && sm[i] < (max / 8ul)) i++;
     while ((i+1) < maxbin && sm[i+1] >= sm[i]) i++;
 
-    double cell = (double)i / 2.0;
+    double cell = (double)i / (double)kmin;
     if (cell < 4.0)
         return 0;
 
@@ -55,7 +55,7 @@ double estimate_cell_period(const std::vector<uint32_t> &flux) {
             if (hist[b] == 0) continue;
 
             double k = floor(((double)b / cell) + 0.5);
-            if (k < 2 || k > 4) continue;
+            if (k < kmin || k > kmax) continue;
 
             num += (double)hist[b] * (double)b;
             den += (double)hist[b] * k;
@@ -72,7 +72,7 @@ double estimate_cell_period(const std::vector<uint32_t> &flux) {
     fit = 0;
     for (unsigned int b=1;b < maxbin;b++) {
         const double k = floor(((double)b / cell) + 0.5);
-        if (k >= 2 && k <= 4 && fabs((double)b - (k * cell)) <= (cell / 4.0))
+        if (k >= kmin && k <= kmax && fabs((double)b - (k * cell)) <= (cell / 4.0))
             fit += hist[b];
     }
 
