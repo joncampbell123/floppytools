@@ -11,6 +11,8 @@ for k in *.kryoflux; do
 		done
 		echo "Reading $list in $k in `pwd`"
 		"$top/../kryo_ibm" $list
+		"$top/../kryo_amiga" $list
+		"$top/../kryo_macgcr" $list
 	fi
 done
 
